@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -55,3 +56,20 @@ class TrackBank(BaseModel):
             if q.id == question_id:
                 return q
         raise KeyError(f"no {self.track} question with id {question_id!r}")
+
+
+class Turn(BaseModel):
+    speaker: Literal["interviewer", "candidate"]
+    text: str
+
+
+class Exchange(BaseModel):
+    """One question and everything said about it."""
+
+    question: Question
+    turns: list[Turn] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    skipped: bool = False
+
+    def transcript(self) -> str:
+        return "\n\n".join(f"{t.speaker.capitalize()}: {t.text}" for t in self.turns)
