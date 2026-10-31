@@ -53,6 +53,11 @@ class AnthropicLLM:
             raise LLMError(f"API error {e.status_code}: {e.message}") from e
         except anthropic.APIConnectionError as e:
             raise LLMError("Could not reach the API. Check your internet connection.") from e
+        except TypeError as e:
+            # The SDK raises TypeError when it finds no key, token or login profile at all.
+            if "authentication" not in str(e):
+                raise
+            raise LLMError("No API key found. Set ANTHROPIC_API_KEY.") from e
 
         if response.stop_reason == "refusal":
             raise LLMError("The model declined to answer this turn.")
