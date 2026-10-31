@@ -6,7 +6,10 @@ readme = "README.md"
 license = "MIT"
 authors = [{ name = "habul17", email = "abulhassanca.dev@gmail.com" }]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pydantic>=2.14.2",
+    "pyyaml>=6.0.3",
+]
 
 [build-system]
 requires = ["hatchling"]

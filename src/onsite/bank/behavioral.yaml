@@ -1,0 +1,128 @@
+track: behavioral
+
+rubric:
+  - id: structure
+    name: Structure
+    description: The story has a clear situation, task, action and result, in that order, without rambling.
+    anchors:
+      1: No clear story. Jumps around, or answers with opinions instead of a real example.
+      2: A real example, but key parts are missing or buried (often the result).
+      3: Clear situation, task, action and result. Easy to follow.
+      4: Tight and well paced. Context is short, most time is spent on actions and outcome.
+  - id: ownership
+    name: Ownership
+    description: Makes it clear what the candidate personally did and decided, not just what the team did.
+    anchors:
+      1: Only "we". Cannot say what they did themselves.
+      2: Some personal actions, but mostly following instructions or vague about their role.
+      3: Clear personal actions and decisions that moved the outcome.
+      4: Drove the outcome. Took on work beyond their role and owned the result, good or bad.
+  - id: judgment
+    name: Judgment
+    description: Explains why they chose what they did, which options they weighed and what trade-offs they accepted.
+    anchors:
+      1: No reasoning given, or the reasoning shows poor judgment.
+      2: Some reasoning, but no alternatives or trade-offs considered.
+      3: Weighed real options and explains the trade-off they picked.
+      4: Shows sharp judgment under pressure, used data, and the reasoning would hold up at a higher level.
+  - id: impact
+    name: Impact
+    description: Describes concrete, measurable results and how big the scope was.
+    anchors:
+      1: No result, or the result is unclear.
+      2: A result, but vague ("it went well") with no numbers or scope.
+      3: Concrete result with numbers or clear business or user impact.
+      4: Large, measurable impact at or above the level being hired for.
+  - id: reflection
+    name: Reflection
+    description: Shows self-awareness, what they learned and what they would do differently.
+    anchors:
+      1: No reflection, blames others, or claims nothing could be improved.
+      2: Generic lesson ("communication is important").
+      3: A specific lesson tied to the story and a change they made.
+      4: Deep self-awareness, and shows the lesson changed how they work since then.
+
+level_bar:
+  junior: Owns their own tasks well. Asks for help at the right time. Learns quickly from feedback.
+  mid: Owns features end to end. Works through problems with little guidance. Handles disagreement with peers maturely.
+  senior: Leads projects across a team. Handles ambiguity, influences without authority and mentors others. Impact is felt by the whole team.
+  staff: Sets direction across several teams. Solves problems no one assigned to them. Impact is felt across the organisation.
+
+questions:
+  - id: disagreement
+    title: Disagreeing on a technical decision
+    prompt: Tell me about a time you strongly disagreed with a teammate or your manager on a technical decision. What happened?
+    strong_signals:
+      - Disagreed with data or reasoning, not just opinion.
+      - Listened to the other side and could explain their view fairly.
+      - Disagreed respectfully, then committed fully once a decision was made.
+      - Says how it ended and what the result was, even if they lost the argument.
+    follow_ups:
+      - What was the strongest argument the other person had?
+      - If you had to make the same call again today, would you push harder or less? Why?
+      - How did this affect your working relationship afterwards?
+
+  - id: failure
+    title: A real failure
+    prompt: Tell me about a time you failed or made a serious mistake at work.
+    strong_signals:
+      - Picks a real failure with real consequences, not a humble brag.
+      - Owns their part without blaming others.
+      - Explains how they limited the damage once they noticed.
+      - Names a specific change they made so it does not happen again.
+    follow_ups:
+      - When did you first realise something was going wrong?
+      - Who did you tell, and how did you tell them?
+      - What did you change in how you work after this?
+
+  - id: ambiguity
+    title: Unclear requirements
+    prompt: Tell me about a project where the requirements were unclear or kept changing. How did you move forward?
+    strong_signals:
+      - Made progress without waiting for perfect information.
+      - Found the right people and asked the right questions to reduce the unknowns.
+      - Wrote down assumptions or a plan and got agreement on it.
+      - Built in a way that could handle change, and shipped something useful.
+    follow_ups:
+      - What was the single biggest unknown, and how did you resolve it?
+      - What did you decide to build first, and why that?
+      - Looking back, what would you have clarified earlier?
+
+  - id: tight-deadline
+    title: Tight deadline, not enough time
+    prompt: Tell me about a time you had to deliver under a tight deadline and could not do everything that was asked.
+    strong_signals:
+      - Cut scope on purpose, based on what mattered most to users or the business.
+      - Told stakeholders early and reset expectations.
+      - Protected quality where it mattered and explains what they left out.
+      - Says what happened to the work that was cut.
+    follow_ups:
+      - How did you decide what to cut?
+      - Who pushed back on the cuts, and how did you handle it?
+      - Did any of the shortcuts cause problems later?
+
+  - id: influence
+    title: Influence without authority
+    prompt: Tell me about a time you convinced people to adopt your idea when you had no authority over them.
+    strong_signals:
+      - Understood what the other people cared about and framed the idea around it.
+      - Used data, a prototype or a small trial to build trust.
+      - Won over key people one by one instead of only pitching in a meeting.
+      - Shows the idea was actually adopted and what changed because of it.
+    follow_ups:
+      - Who was the hardest person to convince, and what finally worked?
+      - What would you have done if they still said no?
+      - How do you know the idea actually made a difference?
+
+  - id: hardest-project
+    title: Most technically challenging project
+    prompt: Walk me through the most technically challenging project you have worked on. What was your role?
+    strong_signals:
+      - Explains why it was hard in technical terms, not just that it was big.
+      - Clear about their own technical contributions and decisions.
+      - Discusses alternatives they considered and why they rejected them.
+      - Gives the outcome with numbers, such as latency, cost, reliability or users.
+    follow_ups:
+      - What was the hardest technical decision, and what were the options?
+      - What broke or surprised you along the way?
+      - If you rebuilt it today, what would you do differently?

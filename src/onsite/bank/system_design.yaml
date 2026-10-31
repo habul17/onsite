@@ -1,0 +1,106 @@
+track: system_design
+
+rubric:
+  - id: requirements
+    name: Requirements and scope
+    description: Pins down functional and non-functional requirements and rough scale before designing.
+    anchors:
+      1: Starts drawing boxes without asking what the system must do.
+      2: Lists some features but skips scale, latency or consistency needs.
+      3: Clear functional and non-functional requirements with back-of-the-envelope numbers.
+      4: Scopes sharply, prioritises what matters and uses the numbers to drive later decisions.
+  - id: high_level
+    name: High-level design
+    description: Proposes the core components, APIs and data model, and how a request flows through them.
+    anchors:
+      1: No coherent design.
+      2: Main components present but the APIs, data model or request flow are unclear.
+      3: Sensible components, clear APIs and data model, and a request flow that works.
+      4: Clean, simple design where every component has a clear reason to exist.
+  - id: deep_dive
+    name: Deep dive and scale
+    description: Finds the bottlenecks and solves them with caching, partitioning, replication or queues.
+    anchors:
+      1: Cannot say what breaks at scale.
+      2: Names bottlenecks but the fixes are buzzwords without detail.
+      3: Goes deep on the main bottleneck with concrete, correct techniques.
+      4: Goes deep on several areas, including failure modes, hot spots and operations.
+  - id: tradeoffs
+    name: Trade-offs
+    description: Compares alternatives and explains why each choice fits these requirements.
+    anchors:
+      1: Presents one option as the only answer.
+      2: Mentions alternatives but cannot say why one is better here.
+      3: Weighs alternatives against the requirements and picks with clear reasons.
+      4: Trade-off reasoning is precise, tied to the numbers and includes what they would revisit later.
+  - id: communication
+    name: Communication
+    description: Drives the discussion in a clear order and checks in with the interviewer.
+    anchors:
+      1: Disorganised. The interviewer has to lead every step.
+      2: Some structure, but jumps around or loses track of time.
+      3: Clear structure from requirements to deep dive, and checks in at the right moments.
+      4: Runs the session like a design review they are leading.
+
+level_bar:
+  junior: Not usually asked. If asked, a working high-level design with basic components is enough.
+  mid: A working design with clear APIs and data model, and some awareness of scaling.
+  senior: Drives the whole session, goes deep on bottlenecks and makes trade-offs tied to the requirements.
+  staff: Senior bar plus failure modes, operations, cost, evolution over time and how teams would own the parts.
+
+questions:
+  - id: url-shortener
+    title: URL shortener
+    prompt: Design a URL shortening service. Users submit a long URL and get back a short link that redirects to it.
+    strong_signals:
+      - Estimates read-heavy traffic (many more redirects than creates) and storage over several years.
+      - Short code from a counter with base62 encoding or a random key with collision checks, and explains the trade-off.
+      - Key-value store for code to URL, with a cache in front for hot links.
+      - Uses 301 vs 302 deliberately depending on whether click analytics are needed.
+      - Covers custom aliases, expiry and abuse such as malicious links.
+    follow_ups:
+      - How do you generate unique codes across many servers without a single bottleneck?
+      - One link goes viral and gets a million hits a minute. What happens?
+      - How would you add click analytics without slowing down redirects?
+
+  - id: rate-limiter
+    title: Distributed rate limiter
+    prompt: Design a rate limiter that limits how many requests each user can make to an API across a fleet of servers.
+    strong_signals:
+      - Asks about limits per user, per IP or per API key, and whether limits are strict or approximate.
+      - Compares token bucket, fixed window and sliding window, and picks one with reasons.
+      - Shared counter store such as Redis with atomic operations or Lua scripts.
+      - Discusses what happens when the counter store is slow or down (fail open vs fail closed).
+      - Returns 429 with retry-after headers.
+    follow_ups:
+      - How do you avoid a race condition when two servers update the same counter?
+      - How would you keep latency low for users far from the Redis cluster?
+      - How do you change a user's limit without a deploy?
+
+  - id: news-feed
+    title: News feed
+    prompt: Design the home news feed for a social network where users follow other users and see their posts.
+    strong_signals:
+      - Estimates daily active users, posts per day and feed reads per day.
+      - Compares fan-out on write (push) with fan-out on read (pull).
+      - Uses a hybrid for celebrities with millions of followers.
+      - Stores precomputed feeds in a cache, with posts in a separate store, and paginates with cursors.
+      - Mentions ranking as a separate stage that can change later.
+    follow_ups:
+      - A user with 50 million followers posts. Walk me through what happens.
+      - How do you handle a user who has not logged in for a year?
+      - How would you add ranking by relevance instead of time?
+
+  - id: chat-app
+    title: Chat application
+    prompt: Design a chat application that supports one-to-one and group messaging, with online status.
+    strong_signals:
+      - Persistent connections with WebSockets and a service that tracks which server each user is connected to.
+      - Message storage keyed by conversation and ordered by time, such as a wide-column store.
+      - Delivery to offline users with push notifications and sync on reconnect.
+      - Message ordering and delivery guarantees (sent, delivered, read) with message ids.
+      - Presence with heartbeats, and why it can be approximate.
+    follow_ups:
+      - How do you make sure messages show up in the same order for everyone in a group?
+      - A chat server crashes with 100,000 users connected. What happens?
+      - How would you add end-to-end encryption, and what does it break?

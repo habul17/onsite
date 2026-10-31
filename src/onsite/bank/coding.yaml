@@ -1,0 +1,155 @@
+track: coding
+
+rubric:
+  - id: understanding
+    name: Problem understanding
+    description: Clarifies the input, output, constraints and edge cases before writing code.
+    anchors:
+      1: Starts coding straight away and misunderstands the problem.
+      2: Understands the main case but misses important constraints or edge cases.
+      3: Asks good clarifying questions and confirms the edge cases before coding.
+      4: Spots tricky edge cases and constraints the interviewer did not mention.
+  - id: approach
+    name: Approach
+    description: Finds a working approach, improves it toward the optimal one and justifies the data structures.
+    anchors:
+      1: No working approach, even with hints.
+      2: Reaches a brute force solution, or the optimal one only after heavy hints.
+      3: States a brute force, then reaches the optimal approach with little help.
+      4: Goes straight to the optimal approach and clearly explains why it works.
+  - id: correctness
+    name: Correctness
+    description: The code is correct, handles edge cases and is tested by walking through an example.
+    anchors:
+      1: Code does not work or is missing.
+      2: Main idea is right but there are real bugs or missed edge cases.
+      3: Correct code with at most small slips that they catch themselves.
+      4: Clean, correct, idiomatic code, tested with an example and edge cases without being asked.
+  - id: complexity
+    name: Complexity analysis
+    description: Gives correct time and space complexity and explains where it comes from.
+    anchors:
+      1: No analysis, or it is wrong.
+      2: Partly right, or right but cannot explain why.
+      3: Correct time and space complexity with a clear explanation.
+      4: Correct analysis, and discusses trade-offs between approaches or the best possible bound.
+  - id: communication
+    name: Communication
+    description: Thinks out loud, explains decisions and works well with hints.
+    anchors:
+      1: Silent or hard to follow. Ignores hints.
+      2: Explains some steps but the interviewer has to pull information out.
+      3: Explains the plan before coding and talks through decisions.
+      4: Easy to follow throughout. Feels like working with a strong teammate.
+
+level_bar:
+  junior: Solves a medium problem with some hints. Code works, complexity mostly right.
+  mid: Solves a medium problem with few hints, clean code, correct complexity, tests their own code.
+  senior: Solves a medium problem quickly and cleanly, drives the conversation, discusses trade-offs and follow-up variants.
+  staff: Same as senior, plus deep reasoning about trade-offs, scale and how the solution would hold up in production.
+
+questions:
+  - id: group-anagrams
+    title: Group anagrams
+    prompt: |
+      Given a list of words, group the words that are anagrams of each other.
+      Return the groups in any order.
+
+      Example: ["eat", "tea", "tan", "ate", "nat", "bat"]
+      Output:  [["eat", "tea", "ate"], ["tan", "nat"], ["bat"]]
+    strong_signals:
+      - Asks about character set (lowercase only?), empty strings and duplicates.
+      - Uses a hash map keyed by a canonical form of the word (sorted letters or a letter count tuple).
+      - Time O(n * k log k) with sorting, or O(n * k) with a count key, where k is word length.
+      - Space O(n * k) for the map.
+    follow_ups:
+      - Can you avoid sorting each word? What would the key be?
+      - What changes if the words can contain any Unicode character?
+      - How would you do this if the list was too big to fit in memory?
+
+  - id: merge-intervals
+    title: Merge overlapping intervals
+    prompt: |
+      Given a list of intervals [start, end], merge all overlapping intervals
+      and return the result.
+
+      Example: [[1, 3], [2, 6], [8, 10], [15, 18]]
+      Output:  [[1, 6], [8, 10], [15, 18]]
+    strong_signals:
+      - Asks whether touching intervals like [1, 4] and [4, 5] count as overlapping.
+      - Sorts by start time, then merges in one pass by comparing with the last merged interval.
+      - Time O(n log n) for the sort, space O(n) for the output.
+      - Handles an empty list and a single interval.
+    follow_ups:
+      - What if the intervals arrive one at a time as a stream?
+      - How would you insert one new interval into an already merged list?
+      - Can you do it without extra space if the input can be changed?
+
+  - id: lru-cache
+    title: LRU cache
+    prompt: |
+      Design a cache with a fixed capacity that supports get(key) and put(key, value).
+      When the cache is full, put removes the least recently used item.
+      Both operations should run in O(1) time.
+    strong_signals:
+      - Asks what get returns for a missing key and whether put on an existing key counts as a use.
+      - Combines a hash map (key to node) with a doubly linked list ordered by recent use.
+      - Moves a node to the front on get and put, and removes from the back when full.
+      - Both operations O(1) time, O(capacity) space.
+    follow_ups:
+      - Why a doubly linked list and not a singly linked one?
+      - How would you make it safe to use from many threads?
+      - How would you change it to evict the least frequently used item instead?
+
+  - id: top-k-frequent
+    title: Top k frequent elements
+    prompt: |
+      Given a list of integers and a number k, return the k most frequent numbers.
+
+      Example: nums = [1, 1, 1, 2, 2, 3], k = 2
+      Output:  [1, 2]
+    strong_signals:
+      - Asks how to break ties and whether k can be larger than the number of unique values.
+      - Counts with a hash map, then uses a min heap of size k, or bucket sort by frequency.
+      - Heap approach O(n log k) time, bucket sort O(n) time, both O(n) space.
+      - Explains when the heap is better than sorting everything.
+    follow_ups:
+      - Can you do better than O(n log k)?
+      - What if the numbers arrive as an endless stream?
+      - What if the data is spread across many machines?
+
+  - id: course-schedule
+    title: Course schedule
+    prompt: |
+      There are n courses labelled 0 to n - 1. You are given a list of pairs [a, b]
+      meaning you must take course b before course a.
+      Return true if it is possible to finish all courses.
+
+      Example: n = 2, prerequisites = [[1, 0]]  ->  true
+      Example: n = 2, prerequisites = [[1, 0], [0, 1]]  ->  false
+    strong_signals:
+      - Recognises it as cycle detection in a directed graph.
+      - Builds an adjacency list and uses Kahn's algorithm (in-degree and a queue) or DFS with three colours.
+      - Time O(V + E), space O(V + E).
+      - Handles courses with no prerequisites and duplicate pairs.
+    follow_ups:
+      - How would you return a valid order to take the courses?
+      - Why does DFS need three states and not just visited or not visited?
+      - What if the graph is too large for recursion?
+
+  - id: longest-unique-substring
+    title: Longest substring without repeating characters
+    prompt: |
+      Given a string, find the length of the longest substring that has no repeating characters.
+
+      Example: "abcabcbb"  ->  3  ("abc")
+      Example: "pwwkew"    ->  3  ("wke")
+    strong_signals:
+      - Asks about the character set and the empty string.
+      - Uses a sliding window with a map from character to last seen index.
+      - Moves the left edge past the previous copy of a repeated character, never backwards.
+      - Time O(n), space O(min(n, alphabet size)).
+    follow_ups:
+      - Why must the left pointer never move backwards?
+      - How would you return the substring itself, not only its length?
+      - What changes if you may allow at most two repeats of any character?
