@@ -1,5 +1,114 @@
 # onsite
 
-An AI mock interviewer that runs a real onsite loop and grades you like a hiring committee.
+An AI mock interviewer that runs a real onsite round and grades you like a hiring committee.
 
-Work in progress.
+Most AI interview tools ask a question, wait for your answer, and give you a generous score. Real interviews
+don't work like that. A real interviewer digs into the weak parts of your answer, and a real hiring committee
+only gives credit for what you actually said.
+
+onsite does both.
+
+## What makes it different
+
+- **It follows up like a real interviewer.** After every answer it checks which rubric items it still has no
+  evidence for, and asks about those. Said "we" the whole time? It asks what *you* did. No result? It asks
+  how it ended and how you measured it.
+- **It stays neutral.** No "great answer!" in the middle of the round. You find out how you did at the end,
+  the same as in a real loop.
+- **Every score needs proof.** The grader must quote your exact words for each score. The code then checks
+  each quote against the transcript. If the quote isn't really there, the score drops to 1. No evidence, no
+  credit.
+- **Graded for your level.** The bar for a junior is not the bar for a staff engineer. Each round is scored
+  against the level you pick.
+- **Hiring committee style result.** Scores on a 1 to 4 scale per rubric item, then a decision from Strong No
+  Hire to Strong Hire. One clear red flag blocks a hire, like it would in a real committee.
+
+## Rounds
+
+| Track | What it covers |
+| --- | --- |
+| `behavioral` | Structure, ownership, judgment, impact, reflection |
+| `coding` | Problem understanding, approach, correctness, complexity, communication |
+| `system_design` | Requirements, high-level design, deep dive, trade-offs, communication |
+
+Each question comes with what a strong answer covers and the follow-ups a real interviewer would use. See
+[`src/onsite/bank`](src/onsite/bank).
+
+## Quick start
+
+You need [uv](https://docs.astral.sh/uv/) and an Anthropic API key.
+
+```bash
+git clone https://github.com/habul17/onsite.git
+cd onsite
+uv sync
+export ANTHROPIC_API_KEY=your-key
+uv run onsite start --track behavioral --level senior
+```
+
+During the round:
+
+- Press Enter on an empty line to send your answer.
+- Wrap code in ``` so blank lines inside it are kept.
+- Type `/skip` to skip a question, or `/quit` to stop and get graded on what you answered.
+
+At the end you get a score table in the terminal and a full report in `reports/`, with the evidence for every
+score and the whole transcript.
+
+### Options
+
+```bash
+uv run onsite start --track coding --level mid          # one coding problem
+uv run onsite start --track system_design --level staff # one design question
+uv run onsite start --questions 4 --follow-ups 2        # more questions, fewer follow-ups
+uv run onsite start --seed 42                           # same questions every time
+uv run onsite questions --track coding                  # list the question bank
+```
+
+Set `ONSITE_MODEL` to use a different model.
+
+## How it works
+
+```mermaid
+flowchart LR
+    Q[Question bank<br/>rubric + level bar] --> I[Interviewer]
+    I -->|asks| C[You]
+    C -->|answer| I
+    I -->|follow up or move on| I
+    I --> T[Transcript]
+    T --> G[Grader]
+    G -->|scores + quotes| V[Quote check]
+    V --> R[Report]
+```
+
+1. **Interviewer** (`interviewer.py`). For each answer, the model decides to follow up or move on and writes a
+   private note on what evidence is still missing. The code enforces the follow-up limit, so a round never
+   drags on.
+2. **Grader** (`grader.py`). After the round, each question is graded on its own. The schema has one required
+   field per rubric item, so nothing can be skipped. Each score comes with evidence quotes, reasoning, and
+   then the score, in that order.
+3. **Quote check** (`grader.py`). Every quote is matched against what you actually said (not the
+   interviewer), with a small tolerance for punctuation. Scores without a real quote are set to 1.
+4. **Decision** (`grader.py`). The final decision is computed from the averages with fixed rules, so the same
+   scores always give the same result.
+
+## Development
+
+```bash
+uv run pytest
+```
+
+The tests use a fake model, so they run offline and cost nothing.
+
+## Roadmap
+
+- [ ] Voice mode: speak your answers and hear the interviewer
+- [ ] Web app with a code editor and a whiteboard for design rounds
+- [ ] Questions based on your resume
+- [ ] Full onsite loop: several rounds and one combined hiring decision
+- [ ] Progress over time across your saved reports
+- [ ] Bigger question bank
+
+## License
+
+MIT

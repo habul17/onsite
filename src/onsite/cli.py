@@ -47,7 +47,7 @@ def start(
         llm = AnthropicLLM()
     except anthropic.AnthropicError as e:
         console.print(f"[red]Could not set up the model client:[/red] {e}")
-        console.print("Set ANTHROPIC_API_KEY, or copy .env.example to .env and fill it in.")
+        console.print("Set ANTHROPIC_API_KEY and try again.")
         raise typer.Exit(1)
 
     track_bank = bank.load(track)
