@@ -32,6 +32,12 @@ HELP_TEXT = (
     "Type /skip to skip a question, /quit to stop and get graded on what you answered."
 )
 
+VOICE_HELP_TEXT = (
+    "Press Enter to start talking, and Enter again when you're done. "
+    "You can still type, for example to write code.\n"
+    "Type /skip to skip a question, /quit to stop and get graded on what you answered."
+)
+
 
 @app.command()
 def start(
@@ -41,6 +47,7 @@ def start(
     follow_ups: Annotated[int | None, typer.Option(help="Most follow-ups per question.")] = None,
     seed: Annotated[int | None, typer.Option(help="Pick the same questions every time.")] = None,
     out: Annotated[Path, typer.Option(help="Folder to save the report in.")] = Path("reports"),
+    voice: Annotated[bool, typer.Option("--voice", help="Hear the interviewer and answer out loud.")] = False,
 ):
     """Run a mock interview round, then get graded like a hiring committee."""
     try:
@@ -50,25 +57,29 @@ def start(
         console.print("Set ANTHROPIC_API_KEY and try again.")
         raise typer.Exit(1)
 
+    speech = load_voice() if voice else None
+
     track_bank = bank.load(track)
     picked = bank.pick(track, level, questions or DEFAULT_QUESTIONS[track], seed=seed)
     interview = Interview(llm, track_bank, level, picked, max_follow_ups=follow_ups or DEFAULT_FOLLOW_UPS[track])
 
-    console.print(Panel(HELP_TEXT, title=f"{TRACK_NAMES[track].capitalize()} round, {level.value} level"))
-    say(interview.start())
+    title = f"{TRACK_NAMES[track].capitalize()} round, {level.value} level"
+    console.print(Panel(VOICE_HELP_TEXT if speech else HELP_TEXT, title=title))
 
     try:
+        say(interview.start(), speech)
         while not interview.done:
-            text = read_answer()
+            # What the candidate is answering: the question or the latest follow-up.
+            text = read_answer(speech, context=interview.current.turns[-1].text)
             if text == "/quit":
                 break
             if text == "/skip":
-                say(interview.skip())
+                say(interview.skip(), speech)
                 continue
             with console.status("Interviewer is thinking..."):
                 reply = interview.answer(text)
-            say(reply)
-    except KeyboardInterrupt:
+            say(reply, speech)
+    except (KeyboardInterrupt, EOFError):
         console.print("\nStopping early.")
     except LLMError as e:
         console.print(f"[red]{e}[/red]")
@@ -100,14 +111,54 @@ def list_questions(track: Annotated[Track, typer.Option()] = Track.BEHAVIORAL):
     console.print(table)
 
 
-def say(message: str) -> None:
+def load_voice():
+    try:
+        from onsite.voice import Voice
+
+        speech = Voice()
+        console.print("Loading the voice models. The first run downloads about 270 MB.")
+        speech.load()
+    except ImportError:
+        console.print("[red]Voice mode needs a few extra packages.[/red] Run: uv sync --extra voice")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Could not start voice mode:[/red] {e}")
+        raise typer.Exit(1)
+    return speech
+
+
+def say(message: str, speech=None) -> None:
     console.print()
     console.print(Text("Interviewer", style="bold cyan"))
     console.print(Text(message))
     console.print()
+    if speech:
+        try:
+            speech.say(message)
+        except Exception as e:  # a lost headset shouldn't end the round
+            console.print(f"[red]Could not play audio:[/red] {e}")
 
 
-def read_answer() -> str:
+def listen(speech, context: str) -> str:
+    """Record until Enter, then show what was heard. Returns "" to go back to the prompt."""
+    while True:
+        console.print("[bold red]Recording.[/bold red] Press Enter when you're done.")
+        try:
+            samples = speech.record(lambda: console.input(""))
+        except Exception as e:  # no microphone, or it's in use
+            console.print(f"[red]Recording failed:[/red] {e}. You can type your answer instead.")
+            return ""
+        with console.status("Transcribing..."):
+            text = speech.transcribe(samples, context)
+        if not text:
+            console.print("I didn't catch that. Press Enter to try again, or type your answer.")
+            return ""
+        console.print(Text(text, style="green"))
+        if console.input("[dim]Press Enter to send it, or type r to record again.[/dim] ").strip().lower() != "r":
+            return text
+
+
+def read_answer(speech=None, context: str = "") -> str:
     lines: list[str] = []
     in_code = False
     while True:
@@ -115,6 +166,10 @@ def read_answer() -> str:
             line = console.input("[bold green]> [/bold green]" if not lines else "  ")
         except EOFError:
             return "\n".join(lines) or "/quit"
+        if speech and not lines and not line.strip():
+            if spoken := listen(speech, context):
+                return spoken
+            continue
         if line.strip().startswith("```"):
             in_code = not in_code
         if not line.strip() and not in_code:
