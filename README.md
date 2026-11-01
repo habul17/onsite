@@ -20,6 +20,8 @@ onsite does both.
   credit.
 - **Graded for your level.** The bar for a junior is not the bar for a staff engineer. Each round is scored
   against the level you pick.
+- **You can talk instead of type.** With `--voice` the interviewer speaks and you answer out loud, like a
+  real call. Speech runs on your machine, so your voice never leaves it.
 - **Hiring committee style result.** Scores on a 1 to 4 scale per rubric item, then a decision from Strong No
   Hire to Strong Hire. One clear red flag blocks a hire, like it would in a real committee.
 
@@ -55,6 +57,26 @@ During the round:
 At the end you get a score table in the terminal and a full report in `reports/`, with the evidence for every
 score and the whole transcript.
 
+### Voice mode
+
+Hear the interviewer and answer out loud:
+
+```bash
+uv sync --extra voice
+uv run onsite start --track behavioral --voice
+```
+
+- Press Enter to start talking, and Enter again when you're done.
+- You see what it heard before it's sent. Press Enter to send, or type `r` to record again.
+- You can still type any answer, which helps when you need to write code.
+
+Everything runs locally: [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) for the interviewer's voice and
+[Whisper](https://github.com/SYSTRAN/faster-whisper) for your answers. Only the text goes to the model. The
+first run downloads about 270 MB of models. No system packages are needed.
+
+Whisper is primed with the question you're answering and common tech terms, so words like Postgres, Kafka
+and O(n log n) come out right.
+
 ### Options
 
 ```bash
@@ -62,10 +84,15 @@ uv run onsite start --track coding --level mid          # one coding problem
 uv run onsite start --track system_design --level staff # one design question
 uv run onsite start --questions 4 --follow-ups 2        # more questions, fewer follow-ups
 uv run onsite start --seed 42                           # same questions every time
+uv run onsite start --voice                             # talk instead of type
 uv run onsite questions --track coding                  # list the question bank
 ```
 
-Set `ONSITE_MODEL` to use a different model.
+| Variable | What it does | Default |
+| --- | --- | --- |
+| `ONSITE_MODEL` | Model for the interviewer and grader | set in `llm.py` |
+| `ONSITE_VOICE` | Interviewer voice, for example `am_michael` or `bf_emma` | `af_heart` |
+| `ONSITE_WHISPER_MODEL` | Speech to text model. `small.en` is more accurate but slower | `base.en` |
 
 ## How it works
 
@@ -98,11 +125,12 @@ flowchart LR
 uv run pytest
 ```
 
-The tests use a fake model, so they run offline and cost nothing.
+The tests use a fake model, so they run offline and cost nothing. Run `uv sync --extra voice` first to
+include the audio tests. They don't need a microphone or speakers.
 
 ## Roadmap
 
-- [ ] Voice mode: speak your answers and hear the interviewer
+- [x] Voice mode: speak your answers and hear the interviewer
 - [ ] Web app with a code editor and a whiteboard for design rounds
 - [ ] Questions based on your resume
 - [ ] Full onsite loop: several rounds and one combined hiring decision
