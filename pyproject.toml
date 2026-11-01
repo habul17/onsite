@@ -16,9 +16,12 @@ dependencies = [
 
 [project.optional-dependencies]
 voice = [
+    "espeakng-loader>=0.2.4",
     "faster-whisper>=1.2.1",
+    "kokoro-onnx>=0.6.1; python_version < '3.14'",
     "miniaudio>=1.71",
     "numpy>=2.0",
+    "onnxruntime>=1.20.1",
 ]
 
 [project.scripts]
