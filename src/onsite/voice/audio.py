@@ -102,6 +102,11 @@ def feed(pending: queue.Queue, finished: threading.Event) -> Generator[bytes, in
         wanted = yield out.tobytes()
 
 
+def is_quiet(samples: np.ndarray, threshold: float = 0.01) -> bool:
+    """True when the loudest sample is under about -40 dB, which usually means a muted or wrong microphone."""
+    return not len(samples) or float(np.max(np.abs(samples))) < threshold
+
+
 def to_float(pcm: bytes) -> np.ndarray:
     return np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
 

@@ -32,6 +32,8 @@ HELP_TEXT = (
     "Type /skip to skip a question, /quit to stop and get graded on what you answered."
 )
 
+MUTED = "[yellow]Your microphone sounds muted or very quiet. Check which input device is selected.[/yellow]"
+
 VOICE_HELP_TEXT = (
     "Press Enter to start talking, and Enter again when you're done. "
     "You can still type, for example to write code.\n"
@@ -102,6 +104,25 @@ def start(
     console.print(f"\nFull report with evidence and transcript: [bold]{path}[/bold]")
 
 
+@app.command("voice-check")
+def voice_check():
+    """Check your speakers and microphone before a voice round."""
+    speech = load_voice()
+    say("This is how I'll sound in the interview. Now say a sentence, and press Enter when you're done.", speech)
+    console.print("[bold red]Recording.[/bold red] Press Enter when you're done.")
+    samples = speech.record(lambda: console.input(""))
+    if speech.is_quiet(samples):
+        console.print(MUTED)
+        raise typer.Exit(1)
+    with console.status("Transcribing..."):
+        text = speech.transcribe(samples)
+    if not text:
+        console.print("I didn't catch any words. Try speaking a bit closer to the microphone.")
+        raise typer.Exit(1)
+    console.print(Text.assemble("I heard: ", (text, "green")))
+    console.print("If that's right, you're ready: onsite start --voice")
+
+
 @app.command("questions")
 def list_questions(track: Annotated[Track, typer.Option()] = Track.BEHAVIORAL):
     """List the questions in the bank for a track."""
@@ -113,7 +134,7 @@ def list_questions(track: Annotated[Track, typer.Option()] = Track.BEHAVIORAL):
 
 def load_voice():
     try:
-        from onsite.voice import Voice
+        from onsite.voice import Voice, audio  # noqa: F401  (audio fails to import without the extra)
 
         speech = Voice()
         console.print("Loading the voice models. The first run downloads about 270 MB.")
@@ -151,6 +172,8 @@ def listen(speech, context: str) -> str:
         with console.status("Transcribing..."):
             text = speech.transcribe(samples, context)
         if not text:
+            if speech.is_quiet(samples):
+                console.print(MUTED)
             console.print("I didn't catch that. Press Enter to try again, or type your answer.")
             return ""
         console.print(Text(text, style="green"))

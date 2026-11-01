@@ -63,6 +63,7 @@ Hear the interviewer and answer out loud:
 
 ```bash
 uv sync --extra voice
+uv run onsite voice-check                       # test your speakers and mic first
 uv run onsite start --track behavioral --voice
 ```
 

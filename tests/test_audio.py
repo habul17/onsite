@@ -51,6 +51,13 @@ def test_feed_pads_with_silence_while_the_next_chunk_is_being_made():
     assert finished.is_set()
 
 
+def test_quiet_means_a_muted_mic_not_a_soft_voice():
+    assert audio.is_quiet(np.zeros(16_000, dtype=np.float32))
+    assert audio.is_quiet(np.full(16_000, 0.005, dtype=np.float32))
+    assert audio.is_quiet(np.zeros(0, dtype=np.float32))
+    assert not audio.is_quiet(np.array([0.0, 0.05, -0.2], dtype=np.float32))
+
+
 def test_samples_convert_both_ways_and_clip():
     out = audio.to_int16(np.array([0.0, 0.5, -1.0, 2.0], dtype=np.float32))
     assert out.tolist() == [0, 16383, -32767, 32767]

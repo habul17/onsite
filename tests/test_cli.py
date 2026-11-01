@@ -63,6 +63,9 @@ class FakeVoice:
         wait()  # the candidate presses Enter to stop
         return "samples"
 
+    def is_quiet(self, samples):
+        return samples == "silence"
+
     def transcribe(self, samples, context=""):
         self.contexts.append(context)
         return self.heard.pop(0)
@@ -121,3 +124,23 @@ def test_voice_without_the_extra_explains_how_to_install_it(monkeypatch, tmp_pat
     result = CliRunner().invoke(cli.app, ["start", "--voice", "--out", str(tmp_path)])
     assert result.exit_code == 1
     assert "uv sync --extra voice" in result.output
+
+
+def test_voice_check_plays_a_line_and_shows_what_it_heard(monkeypatch):
+    voice = FakeVoice("Testing one two three.")
+    monkeypatch.setattr(cli, "load_voice", lambda: voice)
+    result = CliRunner().invoke(cli.app, ["voice-check"], input="\n")
+
+    assert result.exit_code == 0, result.output
+    assert voice.said and "how I'll sound" in voice.said[0]
+    assert "I heard: Testing one two three." in result.output
+
+
+def test_voice_check_warns_about_a_muted_mic(monkeypatch):
+    voice = FakeVoice()
+    voice.record = lambda wait: (wait(), "silence")[1]
+    monkeypatch.setattr(cli, "load_voice", lambda: voice)
+    result = CliRunner().invoke(cli.app, ["voice-check"], input="\n")
+
+    assert result.exit_code == 1
+    assert "muted" in result.output

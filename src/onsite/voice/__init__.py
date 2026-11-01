@@ -31,5 +31,10 @@ class Voice:
 
         return record(wait)
 
+    def is_quiet(self, samples) -> bool:
+        from onsite.voice.audio import is_quiet
+
+        return is_quiet(samples)
+
     def transcribe(self, samples, context: str = "") -> str:
         return self.transcriber.transcribe(samples, context)
