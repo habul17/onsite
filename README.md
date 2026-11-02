@@ -1,6 +1,6 @@
 # onsite
 
-An AI mock interviewer that runs a real onsite round and grades you like a hiring committee.
+An AI mock interviewer that runs a real onsite loop and grades you like a hiring committee.
 
 Most AI interview tools ask a question, wait for your answer, and give you a generous score. Real interviews
 don't work like that. A real interviewer digs into the weak parts of your answer, and a real hiring committee
@@ -24,6 +24,9 @@ onsite does both.
   real call. Speech runs on your machine, so your voice never leaves it.
 - **Hiring committee style result.** Scores on a 1 to 4 scale per rubric item, then a decision from Strong No
   Hire to Strong Hire. One clear red flag blocks a hire, like it would in a real committee.
+- **A full onsite loop.** Run coding, system design and behavioral rounds back to back, each with its own
+  interviewer. Then a hiring committee reads every round's feedback and makes one decision. It looks for
+  patterns across rounds, can offer you the level below, and tells you the three things to practise next.
 
 ## Rounds
 
@@ -57,6 +60,33 @@ During the round:
 At the end you get a score table in the terminal and a full report in `reports/`, with the evidence for every
 score and the whole transcript.
 
+### Full loop
+
+Run a whole onsite, round after round:
+
+```bash
+uv run onsite loop --level senior
+```
+
+- The default loop is coding, then system design, then behavioral. You get a break between rounds.
+- You see no scores until the end, like a real loop.
+- Build your own loop with `--round`, for example `--round coding --round coding --round behavioral`. Two
+  rounds of the same kind never get the same question.
+- Type `/quit` at any time to stop. Everything you answered still gets graded, and the committee notes that
+  the loop was cut short.
+
+How the committee decides:
+
+- Every round counts the same. The average sets the decision.
+- One interviewer saying No Hire blocks a hire, even when the average is high.
+- The decision comes from these fixed rules, not from the model. The model writes the reasoning: patterns
+  across rounds, the strongest signal, the biggest concern and what to practise.
+- A pattern must show up in at least two rounds to be reported. The code checks that.
+- If you miss the bar for your level, the committee can say you'd be hired one level down, like real
+  committees do.
+
+Everything is saved in one folder in `reports/`: the committee write-up and each round's full report.
+
 ### Voice mode
 
 Hear the interviewer and answer out loud:
@@ -86,6 +116,7 @@ uv run onsite start --track system_design --level staff # one design question
 uv run onsite start --questions 4 --follow-ups 2        # more questions, fewer follow-ups
 uv run onsite start --seed 42                           # same questions every time
 uv run onsite start --voice                             # talk instead of type
+uv run onsite loop --level staff --voice                # a full loop, out loud
 uv run onsite questions --track coding                  # list the question bank
 ```
 
@@ -106,7 +137,9 @@ flowchart LR
     I --> T[Transcript]
     T --> G[Grader]
     G -->|scores + quotes| V[Quote check]
-    V --> R[Report]
+    V --> R[Round report]
+    R -->|every round in a loop| H[Hiring committee]
+    H --> D[One decision]
 ```
 
 1. **Interviewer** (`interviewer.py`). For each answer, the model decides to follow up or move on and writes a
@@ -119,6 +152,8 @@ flowchart LR
    interviewer), with a small tolerance for punctuation. Scores without a real quote are set to 1.
 4. **Decision** (`grader.py`). The final decision is computed from the averages with fixed rules, so the same
    scores always give the same result.
+5. **Committee** (`committee.py`). In a full loop, every round's decision feeds one more set of fixed rules.
+   The model only writes the notes, and any pattern it claims must name two rounds that really happened.
 
 ## Development
 
@@ -134,7 +169,7 @@ include the audio tests. They don't need a microphone or speakers.
 - [x] Voice mode: speak your answers and hear the interviewer
 - [ ] Web app with a code editor and a whiteboard for design rounds
 - [ ] Questions based on your resume
-- [ ] Full onsite loop: several rounds and one combined hiring decision
+- [x] Full onsite loop: several rounds and one combined hiring decision
 - [ ] Progress over time across your saved reports
 - [ ] Bigger question bank
 
