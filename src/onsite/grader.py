@@ -131,23 +131,30 @@ def grade_exchange(llm: LLM, track_bank: TrackBank, level: Level, exchange: Exch
     )
 
 
-def recommend(overall: float, criterion_means: dict[str, float]) -> str:
-    if overall >= 3.5:
-        decision = "Strong Hire"
-    elif overall >= 3.0:
-        decision = "Hire"
-    elif overall >= 2.75:
-        decision = "Lean Hire"
-    elif overall >= 2.25:
-        decision = "Lean No Hire"
-    elif overall >= 1.75:
-        decision = "No Hire"
-    else:
-        decision = "Strong No Hire"
+HIRE = ("Strong Hire", "Hire", "Lean Hire")
+NO_HIRE = ("No Hire", "Strong No Hire")
 
+
+def band(score: float) -> str:
+    """The decision an average score points to, before any red flags."""
+    if score >= 3.5:
+        return "Strong Hire"
+    if score >= 3.0:
+        return "Hire"
+    if score >= 2.75:
+        return "Lean Hire"
+    if score >= 2.25:
+        return "Lean No Hire"
+    if score >= 1.75:
+        return "No Hire"
+    return "Strong No Hire"
+
+
+def recommend(overall: float, criterion_means: dict[str, float]) -> str:
+    decision = band(overall)
     # A clear red flag on any one rubric item blocks a hire, the way a hiring committee would.
     red_flag = min(criterion_means.values()) <= 1.5
-    if red_flag and decision in ("Strong Hire", "Hire", "Lean Hire"):
+    if red_flag and decision in HIRE:
         decision = "Lean No Hire"
     return decision
 
