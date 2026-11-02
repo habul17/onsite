@@ -110,8 +110,16 @@ def test_there_is_no_level_below_junior(fake_llm):
 def test_an_unfinished_loop_says_so(fake_llm):
     fake = fake_llm(notes())
     report = review(fake, Level.SENIOR, [round_report(Track.CODING, 3)], planned=3)
-    assert "Only 1 of 3 rounds were completed." in fake.calls[0]["prompt"]
+    assert "The candidate finished 1 of 3 rounds. Say so" in fake.calls[0]["prompt"]
     assert not report.complete
+
+
+def test_a_round_stopped_part_way_is_graded_but_not_finished(fake_llm):
+    fake = fake_llm(notes())
+    rounds = [round_report(Track.CODING, 3), round_report(Track.BEHAVIORAL, 3)]
+    report = review(fake, Level.SENIOR, rounds, planned=3, finished=1)
+    assert "finished 1 of 3 rounds and stopped part way through round 2." in fake.calls[0]["prompt"]
+    assert report.finished == 1 and not report.complete
 
 
 def test_review_needs_a_round(fake_llm):

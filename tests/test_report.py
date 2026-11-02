@@ -11,6 +11,7 @@ def loop(**overrides):
     values = dict(
         level=Level.SENIOR,
         planned=2,
+        finished=2,
         rounds=rounds,
         mean=3.0,
         decision="Lean No Hire",
@@ -40,7 +41,7 @@ def test_loop_report_has_the_decision_rounds_and_next_steps():
 
 def test_unfinished_loop_is_flagged_and_hire_at_level_is_not_repeated():
     text = loop_to_markdown(loop(planned=3, decision="Hire", blocked_by=[], hire_level=Level.SENIOR, themes=[]))
-    assert "*Unfinished loop: 2 of 3 rounds." in text
+    assert "*Unfinished loop: 2 of 3 rounds finished." in text
     assert "instead" not in text
     assert "Patterns across rounds" not in text
     assert "| 1. Coding | Strong Hire | 4.00 |" in text

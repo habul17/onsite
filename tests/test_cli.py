@@ -1,6 +1,7 @@
 from typer.testing import CliRunner
 
 from onsite import bank, cli
+from onsite.committee import CommitteeNotes
 from onsite.grader import CriterionGrade, grade_schema
 from onsite.interviewer import InterviewerTurn
 from onsite.models import Track
@@ -144,3 +145,104 @@ def test_voice_check_warns_about_a_muted_mic(monkeypatch):
 
     assert result.exit_code == 1
     assert "muted" in result.output
+
+
+def track_grade(track, score):
+    tb = bank.load(track)
+    schema = grade_schema(tb.track, tuple(c.id for c in tb.rubric))
+    g = CriterionGrade(evidence=["wrote the migration plan myself"], reasoning="clear", score=score)
+    return schema(scores={c.id: g for c in tb.rubric}, strengths=["clear"], gaps=["thin"], stronger_answer="More.")
+
+
+def committee_notes():
+    return CommitteeNotes(
+        summary="Consistent loop.",
+        themes=[],
+        strongest_signal="Clean code in round 1.",
+        biggest_concern="Shallow deep dive in round 2.",
+        level_call="at_level",
+        focus=["Estimate scale before drawing boxes"],
+    )
+
+
+MOVE_ON = InterviewerTurn(action="move_on", message="Okay.", note="done")
+LOOP_ARGS = ["loop", "--level", "senior", "--round", "coding", "--round", "system_design", "--seed", "1"]
+
+
+def run_loop(monkeypatch, tmp_path, fake, stdin, args=LOOP_ARGS):
+    monkeypatch.setattr(cli, "AnthropicLLM", lambda: fake)
+    return CliRunner().invoke(cli.app, [*args, "--out", str(tmp_path)], input=stdin)
+
+
+def test_loop_runs_every_round_then_the_committee_decides(monkeypatch, tmp_path, fake_llm):
+    fake = fake_llm(
+        MOVE_ON, track_grade(Track.CODING, 3), MOVE_ON, track_grade(Track.SYSTEM_DESIGN, 3), committee_notes()
+    )
+    # Answer round 1, Enter after the break, answer round 2.
+    result = run_loop(monkeypatch, tmp_path, fake, f"{ANSWER}\n\n\n{ANSWER}\n\n")
+
+    assert result.exit_code == 0, result.output
+    assert "Round 1 of 2: coding" in result.output and "Round 2 of 2: system design" in result.output
+    assert "Committee decision: Hire" in result.output
+    assert "Estimate scale before drawing boxes" in result.output
+    assert "The committee's decision: Hire." in fake.calls[-1]["prompt"]
+
+    folder = next(tmp_path.iterdir())
+    assert folder.name.endswith("-loop")
+    names = sorted(p.name for p in folder.iterdir())
+    assert names == ["1-coding.json", "1-coding.md", "2-system_design.json", "2-system_design.md", "loop.json", "loop.md"]
+    assert "[1. Coding](1-coding.md)" in (folder / "loop.md").read_text()
+    assert ANSWER in (folder / "2-system_design.md").read_text()
+
+
+def test_quitting_part_way_grades_what_was_done(monkeypatch, tmp_path, fake_llm):
+    fake = fake_llm(MOVE_ON, track_grade(Track.CODING, 3), committee_notes())
+    result = run_loop(monkeypatch, tmp_path, fake, f"{ANSWER}\n\n\n/quit\n")
+
+    assert result.exit_code == 0, result.output
+    assert "finished 1 of 2" in result.output
+    assert "The candidate finished 1 of 2 rounds." in fake.calls[-1]["prompt"]
+    assert (next(tmp_path.iterdir()) / "1-coding.md").exists()
+
+
+def test_stopping_at_the_break_ends_the_loop(monkeypatch, tmp_path, fake_llm):
+    fake = fake_llm(MOVE_ON, track_grade(Track.CODING, 3), committee_notes())
+    result = run_loop(monkeypatch, tmp_path, fake, f"{ANSWER}\n\n/quit\n")
+
+    assert result.exit_code == 0, result.output
+    assert "Round 2 of 2" not in result.output
+    assert "The candidate finished 1 of 2 rounds." in fake.calls[-1]["prompt"]
+
+
+def test_quitting_before_any_answer_grades_nothing(monkeypatch, tmp_path, fake_llm):
+    fake = fake_llm()
+    result = run_loop(monkeypatch, tmp_path, fake, "/quit\n")
+    assert result.exit_code == 0
+    assert "Nothing to grade" in result.output
+    assert fake.calls == []
+
+
+def test_round_reports_survive_if_the_committee_fails(monkeypatch, tmp_path, fake_llm):
+    fake = fake_llm(MOVE_ON, track_grade(Track.CODING, 3))
+
+    def fail(*args, **kwargs):
+        raise cli.LLMError("Rate limited by the API.")
+
+    monkeypatch.setattr(cli.committee, "review", fail)
+    result = run_loop(monkeypatch, tmp_path, fake, f"{ANSWER}\n\n/quit\n")
+    assert result.exit_code == 1
+    assert "round reports are saved" in result.output
+    assert (next(tmp_path.iterdir()) / "1-coding.md").exists()
+
+
+def test_two_rounds_of_the_same_kind_get_different_questions():
+    first, second = cli.pick_loop([Track.CODING, Track.CODING], cli.Level.MID, seed=3)
+    assert len(first) == len(second) == 1
+    assert first[0].id != second[0].id
+
+
+def test_a_loop_bigger_than_the_bank_is_refused(monkeypatch, tmp_path, fake_llm):
+    args = ["loop", *["--round", "system_design"] * 9]
+    result = run_loop(monkeypatch, tmp_path, fake_llm(), "", args)
+    assert result.exit_code == 1
+    assert "Can't build that loop" in result.output

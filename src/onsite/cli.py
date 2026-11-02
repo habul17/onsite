@@ -1,5 +1,6 @@
-"""Command-line mock interview: `onsite start`."""
+"""Command-line mock interviews: one round with `onsite start`, a full loop with `onsite loop`."""
 
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -11,13 +12,14 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from onsite import bank
-from onsite.grader import RoundReport, grade_round
+from onsite import bank, committee
+from onsite.committee import LoopReport
+from onsite.grader import HIRE, RoundReport, grade_round
 from onsite.interviewer import Interview
 from onsite.llm import AnthropicLLM, LLMError
-from onsite.models import Exchange, Level, Track
+from onsite.models import Exchange, Level, Question, Track
 from onsite.prompts import TRACK_NAMES
-from onsite.report import to_markdown
+from onsite.report import loop_to_markdown, to_markdown
 
 app = typer.Typer(add_completion=False, help="An AI mock interviewer for software engineering onsites.")
 console = Console()
@@ -25,6 +27,9 @@ console = Console()
 # Coding and design rounds are a long back-and-forth, so they get many more turns per question.
 DEFAULT_QUESTIONS = {Track.BEHAVIORAL: 3, Track.CODING: 1, Track.SYSTEM_DESIGN: 1}
 DEFAULT_FOLLOW_UPS = {Track.BEHAVIORAL: 3, Track.CODING: 12, Track.SYSTEM_DESIGN: 15}
+
+# The usual shape of a real onsite: problem solving first, then design, then the behavioral chat.
+DEFAULT_LOOP = [Track.CODING, Track.SYSTEM_DESIGN, Track.BEHAVIORAL]
 
 HELP_TEXT = (
     "Press Enter on an empty line to send your answer. "
@@ -52,13 +57,7 @@ def start(
     voice: Annotated[bool, typer.Option("--voice", help="Hear the interviewer and answer out loud.")] = False,
 ):
     """Run a mock interview round, then get graded like a hiring committee."""
-    try:
-        llm = AnthropicLLM()
-    except anthropic.AnthropicError as e:
-        console.print(f"[red]Could not set up the model client:[/red] {e}")
-        console.print("Set ANTHROPIC_API_KEY and try again.")
-        raise typer.Exit(1)
-
+    llm = make_llm()
     speech = load_voice() if voice else None
 
     track_bank = bank.load(track)
@@ -84,6 +83,84 @@ def start(
     show(report)
     path = save(report, exchanges, out)
     console.print(f"\nFull report with evidence and transcript: [bold]{path}[/bold]")
+
+
+@app.command()
+def loop(
+    level: Annotated[Level, typer.Option(help="The level you are interviewing for.")] = Level.MID,
+    rounds: Annotated[
+        list[Track] | None,
+        typer.Option(
+            "--round", help="Add a round. Repeat it to build your own loop. Default: coding, system design, behavioral."
+        ),
+    ] = None,
+    seed: Annotated[int | None, typer.Option(help="Pick the same questions every time.")] = None,
+    out: Annotated[Path, typer.Option(help="Folder to save the reports in.")] = Path("reports"),
+    voice: Annotated[bool, typer.Option("--voice", help="Hear the interviewers and answer out loud.")] = False,
+):
+    """Run a full onsite loop, round after round, then get one hiring committee decision."""
+    plan = rounds or DEFAULT_LOOP
+    try:
+        questions = pick_loop(plan, level, seed)
+    except ValueError as e:
+        console.print(f"[red]Can't build that loop:[/red] {e}")
+        raise typer.Exit(1)
+
+    llm = make_llm()
+    speech = load_voice() if voice else None
+    names = ", ".join(TRACK_NAMES[t] for t in plan)
+    intro = (
+        f"{len(plan)} rounds: {names}. Each round has its own interviewer, and you get no scores until the "
+        "committee decides at the end, like a real loop.\n" + (VOICE_HELP_TEXT if speech else HELP_TEXT)
+    )
+    console.print(Panel(intro, title=f"Onsite loop, {level.value} level"))
+
+    now = datetime.now()
+    folder = out / f"{now:%Y-%m-%d-%H%M}-loop"
+    graded: list[RoundReport] = []
+    files: list[str] = []
+    finished = 0
+    for i, (track, picked) in enumerate(zip(plan, questions, strict=True), 1):
+        console.print()
+        console.rule(f"Round {i} of {len(plan)}: {TRACK_NAMES[track]}")
+        track_bank = bank.load(track)
+        interview = Interview(llm, track_bank, level, picked, max_follow_ups=DEFAULT_FOLLOW_UPS[track])
+        done = run_round(interview, speech)
+        if done:
+            finished += 1
+
+        if exchanges := answered(interview):
+            try:
+                with console.status("Interviewer is writing up their feedback..."):
+                    report = grade_round(llm, track_bank, level, exchanges)
+            except LLMError as e:
+                console.print(f"[red]Grading failed: {e}[/red]")
+                raise typer.Exit(1)
+            # Saved straight away, so a problem later on never loses a round you already did.
+            graded.append(report)
+            files.append(write_round(report, exchanges, folder / f"{i}-{track.value}", now).name)
+
+        if not done:
+            break
+        if i < len(plan) and not take_break():
+            break
+
+    if not graded:
+        console.print("Nothing to grade.")
+        raise typer.Exit()
+
+    try:
+        with console.status("Hiring committee is meeting..."):
+            result = committee.review(llm, level, graded, planned=len(plan), finished=finished)
+    except LLMError as e:
+        console.print(f"[red]The committee could not meet: {e}[/red]")
+        console.print(f"Your round reports are saved in [bold]{folder}[/bold]")
+        raise typer.Exit(1)
+
+    show_loop(result)
+    (folder / "loop.md").write_text(loop_to_markdown(result, files, now))
+    (folder / "loop.json").write_text(result.model_dump_json(indent=2))
+    console.print(f"\nCommittee write-up and every round's report: [bold]{folder / 'loop.md'}[/bold]")
 
 
 @app.command("voice-check")
@@ -141,6 +218,38 @@ def run_round(interview: Interview, speech=None) -> bool:
 def answered(interview: Interview) -> list[Exchange]:
     """The questions worth grading: ones the candidate answered or chose to skip."""
     return [ex for ex in interview.exchanges if any(t.speaker == "candidate" for t in ex.turns) or ex.skipped]
+
+
+def make_llm() -> AnthropicLLM:
+    try:
+        return AnthropicLLM()
+    except anthropic.AnthropicError as e:
+        console.print(f"[red]Could not set up the model client:[/red] {e}")
+        console.print("Set ANTHROPIC_API_KEY and try again.")
+        raise typer.Exit(1)
+
+
+def pick_loop(plan: list[Track], level: Level, seed: int | None) -> list[list[Question]]:
+    """Questions for every round. Two rounds of the same kind never share a question."""
+    pools = {
+        track: bank.pick(track, level, count * DEFAULT_QUESTIONS[track], seed=seed)
+        for track, count in Counter(plan).items()
+    }
+    picked = []
+    for track in plan:
+        n = DEFAULT_QUESTIONS[track]
+        picked.append(pools[track][:n])
+        pools[track] = pools[track][n:]
+    return picked
+
+
+def take_break() -> bool:
+    """Pause between rounds. Returns False if the candidate wants to stop."""
+    try:
+        reply = console.input("\nThat round is over. Take a break, then press Enter for the next one, or type /quit. ")
+    except (KeyboardInterrupt, EOFError):
+        return False
+    return reply.strip() != "/quit"
 
 
 def load_voice():
@@ -244,10 +353,41 @@ def show(report: RoundReport) -> None:
             console.print(Text(f"  - {gap}"))
 
 
+def show_loop(result: LoopReport) -> None:
+    table = Table(title="Your loop")
+    table.add_column("Round")
+    table.add_column("Interviewer's call")
+    table.add_column("Avg", justify="center", style="bold")
+    for i, r in enumerate(result.rounds, 1):
+        call = r.recommendation + (" (blocked a hire)" if i in result.blocked_by else "")
+        table.add_row(f"{i}. {TRACK_NAMES[r.track].capitalize()}", call, f"{r.mean:.1f}")
+    console.print()
+    console.print(table)
+
+    colour = "green" if result.decision in HIRE else "red"
+    console.print(f"\nCommittee decision: [bold {colour}]{result.decision}[/bold {colour}] ({result.mean:.2f} / 4)")
+    if result.hire_level and result.hire_level != result.level:
+        console.print(f"The committee would hire you at [bold]{result.hire_level.value}[/bold] level instead.")
+    if not result.complete:
+        done = f"{result.finished} of {result.planned}"
+        console.print(f"[yellow]You finished {done} rounds, so take this as a rough guide.[/yellow]")
+    console.print()
+    console.print(Text(result.summary))
+    console.print(Text.assemble(("\nStrongest signal: ", "bold"), result.strongest_signal))
+    console.print(Text.assemble(("Biggest concern: ", "bold"), result.biggest_concern))
+    if result.focus:
+        console.print("\n[bold]What to practise next[/bold]")
+        for n, item in enumerate(result.focus, 1):
+            console.print(Text(f"  {n}. {item}"))
+
+
 def save(report: RoundReport, exchanges, folder: Path) -> Path:
-    folder.mkdir(parents=True, exist_ok=True)
     now = datetime.now()
-    stem = folder / f"{now:%Y-%m-%d-%H%M}-{report.track.value}"
-    stem.with_suffix(".md").write_text(to_markdown(report, exchanges, now))
+    return write_round(report, exchanges, folder / f"{now:%Y-%m-%d-%H%M}-{report.track.value}", now)
+
+
+def write_round(report: RoundReport, exchanges, stem: Path, when: datetime) -> Path:
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    stem.with_suffix(".md").write_text(to_markdown(report, exchanges, when))
     stem.with_suffix(".json").write_text(report.model_dump_json(indent=2))
     return stem.with_suffix(".md")

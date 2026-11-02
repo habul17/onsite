@@ -38,6 +38,7 @@ class CommitteeNotes(BaseModel):
 class LoopReport(BaseModel):
     level: Level
     planned: int
+    finished: int = Field(description="Rounds the candidate saw through to the end.")
     rounds: list[RoundReport]
     mean: float
     decision: str
@@ -51,7 +52,7 @@ class LoopReport(BaseModel):
 
     @property
     def complete(self) -> bool:
-        return len(self.rounds) == self.planned
+        return self.finished == self.planned
 
 
 def decide(rounds: list[RoundReport]) -> tuple[str, list[int]]:
@@ -66,18 +67,25 @@ def decide(rounds: list[RoundReport]) -> tuple[str, list[int]]:
     return decision, []
 
 
-def review(llm: LLM, level: Level, rounds: list[RoundReport], planned: int | None = None) -> LoopReport:
-    """Make the committee's decision for a loop, from the graded rounds in the order they happened."""
+def review(
+    llm: LLM, level: Level, rounds: list[RoundReport], planned: int | None = None, finished: int | None = None
+) -> LoopReport:
+    """Make the committee's decision for a loop, from the graded rounds in the order they happened.
+
+    `planned` is how many rounds the loop was meant to have, and `finished` how many the candidate saw through.
+    The last graded round may be one they stopped part way through.
+    """
     if not rounds:
         raise ValueError("the committee needs at least one graded round")
     planned = planned or len(rounds)
+    finished = len(rounds) if finished is None else finished
     decision, blocked_by = decide(rounds)
     below = one_below(level)
 
     tracks = list(dict.fromkeys(r.track for r in rounds))
     notes = llm.structured(
         system=prompts.committee_system(level, below, [bank.load(t) for t in tracks]),
-        prompt=prompts.committee_prompt(rounds, planned, decision, blocked_by),
+        prompt=prompts.committee_prompt(rounds, planned, finished, decision, blocked_by),
         schema=CommitteeNotes,
         effort="high",
     )
@@ -92,6 +100,7 @@ def review(llm: LLM, level: Level, rounds: list[RoundReport], planned: int | Non
     return LoopReport(
         level=level,
         planned=planned,
+        finished=finished,
         rounds=rounds,
         mean=mean(r.mean for r in rounds),
         decision=decision,

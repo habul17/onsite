@@ -58,8 +58,8 @@ def loop_to_markdown(loop: LoopReport, round_files: list[str] | None = None, whe
     if loop.hire_level and loop.hire_level != loop.level:
         lines += ["", f"The committee would hire at **{loop.hire_level.value}** level instead."]
     if not loop.complete:
-        done = f"{len(loop.rounds)} of {loop.planned}"
-        lines += ["", f"*Unfinished loop: {done} rounds. Treat the decision as a rough guide.*"]
+        done = f"{loop.finished} of {loop.planned}"
+        lines += ["", f"*Unfinished loop: {done} rounds finished. Treat the decision as a rough guide.*"]
     lines += ["", loop.summary, "", "| Round | Interviewer's recommendation | Average |", "| --- | --- | --- |"]
 
     for i, r in enumerate(loop.rounds, 1):
