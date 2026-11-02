@@ -15,7 +15,7 @@ from onsite import bank
 from onsite.grader import RoundReport, grade_round
 from onsite.interviewer import Interview
 from onsite.llm import AnthropicLLM, LLMError
-from onsite.models import Level, Track
+from onsite.models import Exchange, Level, Track
 from onsite.prompts import TRACK_NAMES
 from onsite.report import to_markdown
 
@@ -68,26 +68,8 @@ def start(
     title = f"{TRACK_NAMES[track].capitalize()} round, {level.value} level"
     console.print(Panel(VOICE_HELP_TEXT if speech else HELP_TEXT, title=title))
 
-    try:
-        say(interview.start(), speech)
-        while not interview.done:
-            # What the candidate is answering: the question or the latest follow-up.
-            text = read_answer(speech, context=interview.current.turns[-1].text)
-            if text == "/quit":
-                break
-            if text == "/skip":
-                say(interview.skip(), speech)
-                continue
-            with console.status("Interviewer is thinking..."):
-                reply = interview.answer(text)
-            say(reply, speech)
-    except (KeyboardInterrupt, EOFError):
-        console.print("\nStopping early.")
-    except LLMError as e:
-        console.print(f"[red]{e}[/red]")
-        raise typer.Exit(1)
-
-    exchanges = [ex for ex in interview.exchanges if any(t.speaker == "candidate" for t in ex.turns) or ex.skipped]
+    run_round(interview, speech)
+    exchanges = answered(interview)
     if not exchanges:
         console.print("Nothing to grade.")
         raise typer.Exit()
@@ -130,6 +112,35 @@ def list_questions(track: Annotated[Track, typer.Option()] = Track.BEHAVIORAL):
     for q in bank.load(track).questions:
         table.add_row(q.id, q.title, ", ".join(lv.value for lv in q.levels))
     console.print(table)
+
+
+def run_round(interview: Interview, speech=None) -> bool:
+    """Run the round until it ends. Returns False if the candidate stopped early."""
+    try:
+        say(interview.start(), speech)
+        while not interview.done:
+            # What the candidate is answering: the question or the latest follow-up.
+            text = read_answer(speech, context=interview.current.turns[-1].text)
+            if text == "/quit":
+                return False
+            if text == "/skip":
+                say(interview.skip(), speech)
+                continue
+            with console.status("Interviewer is thinking..."):
+                reply = interview.answer(text)
+            say(reply, speech)
+    except (KeyboardInterrupt, EOFError):
+        console.print("\nStopping early.")
+        return False
+    except LLMError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+    return True
+
+
+def answered(interview: Interview) -> list[Exchange]:
+    """The questions worth grading: ones the candidate answered or chose to skip."""
+    return [ex for ex in interview.exchanges if any(t.speaker == "candidate" for t in ex.turns) or ex.skipped]
 
 
 def load_voice():
