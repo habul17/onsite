@@ -1,6 +1,8 @@
 import pytest
 
-from onsite.resume import MAX_CHARS, ResumeError, read_resume
+from onsite import bank
+from onsite.models import Level, Track
+from onsite.resume import MAX_CHARS, ResumeError, ResumeQuestion, ResumeQuestions, questions_from_resume, read_resume
 
 
 def make_pdf(lines):
@@ -65,3 +67,73 @@ def test_explains_what_went_wrong(tmp_path, name, data, message):
 def test_missing_file(tmp_path):
     with pytest.raises(ResumeError, match="No file at"):
         read_resume(tmp_path / "nope.pdf")
+
+
+RESUME = """Jane Doe, Senior Software Engineer
+Acme Payments, 2021 to now
+Led the migration of the ledger from MySQL to Postgres with zero downtime
+Built a fraud scoring service handling 4,000 requests a second
+Mentored three engineers through their first on-call rotation"""
+
+
+def resume_question(quote, title="Ledger migration", signals=("Says what they did themselves",)):
+    return ResumeQuestion(
+        resume_quote=quote,
+        title=title,
+        prompt=f"You wrote '{quote}'. Tell me about the hardest call you made there.",
+        strong_signals=list(signals),
+        follow_ups=["What would you do differently?"],
+    )
+
+
+def test_questions_point_at_real_resume_lines(fake_llm):
+    reply = ResumeQuestions(
+        questions=[
+            resume_question("Led the migration of the ledger from MySQL to Postgres"),
+            resume_question("Rewrote the search engine in Rust", title="Made up"),
+            resume_question("built a fraud scoring service, handling 4000 requests a second", title="Fraud"),
+        ]
+    )
+    fake = fake_llm(reply)
+    questions = questions_from_resume(fake, bank.load(Track.BEHAVIORAL), Level.SENIOR, RESUME, 3)
+
+    assert [q.title for q in questions] == ["Ledger migration", "Fraud"]
+    assert [q.id for q in questions] == ["resume-1", "resume-2"]
+    assert questions[0].based_on == "Led the migration of the ledger from MySQL to Postgres"
+    assert questions[0].track == Track.BEHAVIORAL and questions[0].levels == [Level.SENIOR]
+
+    call = fake.calls[0]
+    assert RESUME in call["prompt"] and "<resume>" in call["prompt"]
+    assert "Write 3 questions." in call["system"]
+    assert bank.load(Track.BEHAVIORAL).level_bar[Level.SENIOR] in call["system"]
+
+
+def test_the_same_resume_line_is_only_used_once(fake_llm):
+    quote = "Mentored three engineers through their first on-call rotation"
+    again = "  mentored three ENGINEERS through their first on-call rotation"
+    reply = ResumeQuestions(questions=[resume_question(quote), resume_question(again)])
+    questions = questions_from_resume(fake_llm(reply), bank.load(Track.BEHAVIORAL), Level.MID, RESUME, 2)
+    assert len(questions) == 1
+
+
+def test_questions_need_signals_and_are_capped_at_the_count(fake_llm):
+    reply = ResumeQuestions(
+        questions=[
+            resume_question("Led the migration of the ledger", signals=()),
+            resume_question("Built a fraud scoring service"),
+            resume_question("Mentored three engineers"),
+        ]
+    )
+    questions = questions_from_resume(fake_llm(reply), bank.load(Track.SYSTEM_DESIGN), Level.SENIOR, RESUME, 1)
+    assert [q.based_on for q in questions] == ["Built a fraud scoring service"]
+
+
+def test_coding_rounds_do_not_use_the_resume(fake_llm):
+    with pytest.raises(ValueError):
+        questions_from_resume(fake_llm(), bank.load(Track.CODING), Level.MID, RESUME, 1)
+
+
+def test_asking_for_no_questions_skips_the_model(fake_llm):
+    fake = fake_llm()
+    assert questions_from_resume(fake, bank.load(Track.BEHAVIORAL), Level.MID, RESUME, 0) == []
+    assert fake.calls == []

@@ -41,6 +41,7 @@ class Question(BaseModel):
     strong_signals: list[str] = Field(min_length=1)
     follow_ups: list[str] = Field(default_factory=list)
     levels: list[Level] = Field(default_factory=lambda: list(Level))
+    based_on: str | None = Field(default=None, description="The line from the candidate's resume it asks about.")
 
 
 class TrackBank(BaseModel):
