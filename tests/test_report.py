@@ -1,8 +1,11 @@
 from datetime import datetime
 
+from onsite import bank
 from onsite.committee import LoopReport, Theme
-from onsite.models import Level, Track
-from onsite.report import loop_to_markdown
+from onsite.grader import grade_exchange, grade_round
+from onsite.models import Exchange, Level, Question, Track, Turn
+from onsite.report import loop_to_markdown, to_markdown
+from test_cli import grade
 from test_committee import round_report
 
 
@@ -45,3 +48,31 @@ def test_unfinished_loop_is_flagged_and_hire_at_level_is_not_repeated():
     assert "instead" not in text
     assert "Patterns across rounds" not in text
     assert "| 1. Coding | Strong Hire | 4.00 |" in text
+
+
+def test_round_report_shows_the_resume_line_behind_a_question(fake_llm):
+    tb = bank.load(Track.BEHAVIORAL)
+    question = Question(
+        id="resume-1",
+        track=Track.BEHAVIORAL,
+        title="Ledger migration",
+        prompt="Tell me about the ledger migration.",
+        strong_signals=["specific"],
+        based_on="Led the migration of the ledger",
+    )
+    exchange = Exchange(question=question)
+    exchange.turns += [
+        Turn(speaker="interviewer", text=question.prompt),
+        Turn(speaker="candidate", text="I wrote the migration plan myself and ran it over a weekend."),
+    ]
+    report = grade_round(fake_llm(grade(3)), tb, Level.MID, [exchange])
+
+    assert report.questions[0].based_on == "Led the migration of the ledger"
+    text = to_markdown(report, [exchange])
+    assert '## Ledger migration\n\n*From your resume: "Led the migration of the ledger"*' in text
+
+
+def test_bank_questions_have_no_resume_line(fake_llm):
+    tb = bank.load(Track.BEHAVIORAL)
+    graded = grade_exchange(fake_llm(), tb, Level.MID, Exchange(question=tb.questions[0], skipped=True))
+    assert graded.based_on is None

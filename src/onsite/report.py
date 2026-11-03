@@ -26,6 +26,8 @@ def to_markdown(report: RoundReport, exchanges: list[Exchange], when: datetime |
 
     for graded, exchange in zip(report.questions, exchanges, strict=True):
         lines += ["", f"## {graded.title}", ""]
+        if graded.based_on:
+            lines += [f'*From your resume: "{graded.based_on}"*', ""]
         if graded.skipped:
             lines += ["Skipped.", ""]
             continue

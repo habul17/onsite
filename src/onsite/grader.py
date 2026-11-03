@@ -44,6 +44,7 @@ class ScoredCriterion(BaseModel):
 class GradedQuestion(BaseModel):
     question_id: str
     title: str
+    based_on: str | None = None
     skipped: bool
     scores: list[ScoredCriterion]
     strengths: list[str]
@@ -103,6 +104,7 @@ def grade_exchange(llm: LLM, track_bank: TrackBank, level: Level, exchange: Exch
         return GradedQuestion(
             question_id=q.id,
             title=q.title,
+            based_on=q.based_on,
             skipped=True,
             scores=[_no_evidence(c, "Question was skipped.") for c in track_bank.rubric],
             strengths=[],
@@ -123,6 +125,7 @@ def grade_exchange(llm: LLM, track_bank: TrackBank, level: Level, exchange: Exch
     return GradedQuestion(
         question_id=q.id,
         title=q.title,
+        based_on=q.based_on,
         skipped=False,
         scores=scores,
         strengths=result.strengths,
