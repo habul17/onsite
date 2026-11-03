@@ -5,6 +5,7 @@ from onsite.committee import CommitteeNotes
 from onsite.grader import CriterionGrade, grade_schema
 from onsite.interviewer import InterviewerTurn
 from onsite.models import Track
+from onsite.resume import ResumeQuestion, ResumeQuestions
 
 ANSWER = "I owned the rollout and wrote the migration plan myself. It cut costs by 30 percent."
 
@@ -246,3 +247,87 @@ def test_a_loop_bigger_than_the_bank_is_refused(monkeypatch, tmp_path, fake_llm)
     result = run_loop(monkeypatch, tmp_path, fake_llm(), "", args)
     assert result.exit_code == 1
     assert "Can't build that loop" in result.output
+
+
+RESUME = """Jane Doe
+Led the migration of the ledger from MySQL to Postgres with zero downtime
+Built a fraud scoring service"""
+
+
+def from_resume(*quotes):
+    return ResumeQuestions(
+        questions=[
+            ResumeQuestion(
+                resume_quote=q,
+                title=f"About: {q}",
+                prompt=f"Your resume says '{q}'. Walk me through it.",
+                strong_signals=["specific"],
+                follow_ups=[],
+            )
+            for q in quotes
+        ]
+    )
+
+
+def resume_file(tmp_path, text=RESUME):
+    path = tmp_path / "resume.md"
+    path.write_text(text)
+    return str(path)
+
+
+def test_start_asks_about_the_resume(monkeypatch, tmp_path, fake_llm):
+    fake = fake_llm(from_resume("Led the migration of the ledger"), MOVE_ON, grade(3))
+    monkeypatch.setattr(cli, "AnthropicLLM", lambda: fake)
+    args = ["start", "--questions", "1", "--resume", resume_file(tmp_path), "--out", str(tmp_path / "reports")]
+    result = CliRunner().invoke(cli.app, args, input=ANSWER + "\n\n")
+
+    assert result.exit_code == 0, result.output
+    assert "Your resume says 'Led the migration of the ledger'. Walk me through it." in result.output
+    assert "<resume>" in fake.calls[0]["prompt"] and "Postgres" in fake.calls[0]["prompt"]
+    assert "Only" not in result.output
+
+
+def test_questions_the_resume_cant_back_up_come_from_the_bank(monkeypatch, tmp_path, fake_llm):
+    fake = fake_llm(from_resume("Rewrote the search engine in Rust"), MOVE_ON, grade(3))
+    monkeypatch.setattr(cli, "AnthropicLLM", lambda: fake)
+    args = ["start", "--questions", "1", "--seed", "1", "--resume", resume_file(tmp_path)]
+    result = CliRunner().invoke(cli.app, [*args, "--out", str(tmp_path / "reports")], input=ANSWER + "\n\n")
+
+    assert result.exit_code == 0, result.output
+    assert "Only 0 of 1 behavioral questions could be tied to your resume" in result.output
+    banked = bank.pick(Track.BEHAVIORAL, cli.Level.MID, 1, seed=1)[0]
+    assert banked.prompt.strip().splitlines()[0] in result.output
+
+
+def test_coding_rounds_ignore_the_resume(monkeypatch, tmp_path, fake_llm):
+    fake = fake_llm()
+    monkeypatch.setattr(cli, "AnthropicLLM", lambda: fake)
+    args = ["start", "--track", "coding", "--resume", resume_file(tmp_path), "--out", str(tmp_path / "reports")]
+    result = CliRunner().invoke(cli.app, args, input="/quit\n")
+
+    assert result.exit_code == 0, result.output
+    assert "resume isn't used here" in result.output
+    assert fake.calls == []
+
+
+def test_a_resume_that_cant_be_read_stops_before_the_round(monkeypatch, tmp_path, fake_llm):
+    fake = fake_llm()
+    monkeypatch.setattr(cli, "AnthropicLLM", lambda: fake)
+    result = CliRunner().invoke(cli.app, ["start", "--resume", str(tmp_path / "missing.pdf")])
+    assert result.exit_code == 1
+    assert "Can't use that resume" in result.output
+    assert fake.calls == []
+
+
+def test_loop_uses_the_resume_for_design_but_not_coding(monkeypatch, tmp_path, fake_llm):
+    fake = fake_llm(
+        from_resume("Built a fraud scoring service"),
+        MOVE_ON, track_grade(Track.SYSTEM_DESIGN, 3), MOVE_ON, track_grade(Track.CODING, 3), committee_notes(),
+    )
+    args = ["loop", "--round", "system_design", "--round", "coding", "--resume", resume_file(tmp_path)]
+    result = run_loop(monkeypatch, tmp_path / "reports", fake, f"{ANSWER}\n\n\n{ANSWER}\n\n", args)
+
+    assert result.exit_code == 0, result.output
+    assert "Write 1 question." in fake.calls[0]["system"]
+    assert "Your resume says 'Built a fraud scoring service'." in result.output
+    assert "Committee decision" in result.output

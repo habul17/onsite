@@ -20,6 +20,8 @@ from onsite.llm import AnthropicLLM, LLMError
 from onsite.models import Exchange, Level, Question, Track
 from onsite.prompts import TRACK_NAMES
 from onsite.report import loop_to_markdown, to_markdown
+from onsite.resume import TRACKS as RESUME_TRACKS
+from onsite.resume import ResumeError, questions_from_resume, read_resume
 
 app = typer.Typer(add_completion=False, help="An AI mock interviewer for software engineering onsites.")
 console = Console()
@@ -55,13 +57,21 @@ def start(
     seed: Annotated[int | None, typer.Option(help="Pick the same questions every time.")] = None,
     out: Annotated[Path, typer.Option(help="Folder to save the report in.")] = Path("reports"),
     voice: Annotated[bool, typer.Option("--voice", help="Hear the interviewer and answer out loud.")] = False,
+    resume: Annotated[
+        Path | None,
+        typer.Option(help="Your resume as a PDF, .md or .txt file. Behavioral and design questions will be about it."),
+    ] = None,
 ):
     """Run a mock interview round, then get graded like a hiring committee."""
+    resume_text = load_resume(resume) if resume else None
     llm = make_llm()
     speech = load_voice() if voice else None
 
     track_bank = bank.load(track)
-    picked = bank.pick(track, level, questions or DEFAULT_QUESTIONS[track], seed=seed)
+    count = questions or DEFAULT_QUESTIONS[track]
+    from_resume = resume_questions(llm, {track: count}, level, resume_text) if resume_text else {}
+    mine = from_resume.get(track, [])
+    picked = mine + bank.pick(track, level, count - len(mine), seed=seed)
     interview = Interview(llm, track_bank, level, picked, max_follow_ups=follow_ups or DEFAULT_FOLLOW_UPS[track])
 
     title = f"{TRACK_NAMES[track].capitalize()} round, {level.value} level"
@@ -97,6 +107,10 @@ def loop(
     seed: Annotated[int | None, typer.Option(help="Pick the same questions every time.")] = None,
     out: Annotated[Path, typer.Option(help="Folder to save the reports in.")] = Path("reports"),
     voice: Annotated[bool, typer.Option("--voice", help="Hear the interviewers and answer out loud.")] = False,
+    resume: Annotated[
+        Path | None,
+        typer.Option(help="Your resume as a PDF, .md or .txt file. Behavioral and design questions will be about it."),
+    ] = None,
 ):
     """Run a full onsite loop, round after round, then get one hiring committee decision."""
     plan = rounds or DEFAULT_LOOP
@@ -106,7 +120,11 @@ def loop(
         console.print(f"[red]Can't build that loop:[/red] {e}")
         raise typer.Exit(1)
 
+    resume_text = load_resume(resume) if resume else None
     llm = make_llm()
+    if resume_text:
+        needed = {track: n * DEFAULT_QUESTIONS[track] for track, n in Counter(plan).items()}
+        questions = pick_loop(plan, level, seed, resume_questions(llm, needed, level, resume_text))
     speech = load_voice() if voice else None
     names = ", ".join(TRACK_NAMES[t] for t in plan)
     intro = (
@@ -229,18 +247,53 @@ def make_llm() -> AnthropicLLM:
         raise typer.Exit(1)
 
 
-def pick_loop(plan: list[Track], level: Level, seed: int | None) -> list[list[Question]]:
-    """Questions for every round. Two rounds of the same kind never share a question."""
-    pools = {
-        track: bank.pick(track, level, count * DEFAULT_QUESTIONS[track], seed=seed)
-        for track, count in Counter(plan).items()
-    }
+def pick_loop(
+    plan: list[Track], level: Level, seed: int | None, from_resume: dict[Track, list[Question]] | None = None
+) -> list[list[Question]]:
+    """Questions for every round, resume questions first. Two rounds of the same kind never share a question."""
+    pools = {}
+    for track, count in Counter(plan).items():
+        needed = count * DEFAULT_QUESTIONS[track]
+        mine = (from_resume or {}).get(track, [])[:needed]
+        pools[track] = mine + bank.pick(track, level, needed - len(mine), seed=seed)
     picked = []
     for track in plan:
         n = DEFAULT_QUESTIONS[track]
         picked.append(pools[track][:n])
         pools[track] = pools[track][n:]
     return picked
+
+
+def load_resume(path: Path) -> str:
+    try:
+        return read_resume(path)
+    except ResumeError as e:
+        console.print(f"[red]Can't use that resume:[/red] {e}")
+        raise typer.Exit(1)
+
+
+def resume_questions(llm, needed: dict[Track, int], level: Level, resume_text: str) -> dict[Track, list[Question]]:
+    """Questions about the resume for every round that uses it. The bank covers whatever is still missing."""
+    if not any(track in RESUME_TRACKS for track in needed):
+        console.print("[yellow]Coding rounds use the question bank, so your resume isn't used here.[/yellow]")
+        return {}
+
+    found = {}
+    for track, count in needed.items():
+        if track not in RESUME_TRACKS:
+            continue
+        try:
+            with console.status(f"Reading your resume for the {TRACK_NAMES[track]} round..."):
+                found[track] = questions_from_resume(llm, bank.load(track), level, resume_text, count)
+        except LLMError as e:
+            console.print(f"[red]Could not write questions from your resume: {e}[/red]")
+            raise typer.Exit(1)
+        if len(found[track]) < count:
+            console.print(
+                f"[yellow]Only {len(found[track])} of {count} {TRACK_NAMES[track]} questions could be tied to "
+                "your resume. The rest come from the question bank.[/yellow]"
+            )
+    return found
 
 
 def take_break() -> bool:
