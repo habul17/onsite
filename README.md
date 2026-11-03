@@ -24,6 +24,9 @@ onsite does both.
   real call. Speech runs on your machine, so your voice never leaves it.
 - **Hiring committee style result.** Scores on a 1 to 4 scale per rubric item, then a decision from Strong No
   Hire to Strong Hire. One clear red flag blocks a hire, like it would in a real committee.
+- **It reads your resume.** Pass `--resume` and the interviewer asks about your real projects, the way a
+  real one would after reading it. Every question must point at a line that's really on your resume, or it's
+  thrown away.
 - **A full onsite loop.** Run coding, system design and behavioral rounds back to back, each with its own
   interviewer. Then a hiring committee reads every round's feedback and makes one decision. It looks for
   patterns across rounds, can offer you the level below, and tells you the three things to practise next.
@@ -87,6 +90,24 @@ How the committee decides:
 
 Everything is saved in one folder in `reports/`: the committee write-up and each round's full report.
 
+### Questions from your resume
+
+```bash
+uv run onsite start --track behavioral --level senior --resume resume.pdf
+uv run onsite loop --level senior --resume resume.pdf
+```
+
+- Behavioral questions dig into the projects and claims on your resume: "You led the ledger migration. What
+  was the hardest call you made?"
+- Design questions ask you to design something close to what you've built, at full scale.
+- Coding rounds still use the question bank. Your resume doesn't change what a fair coding problem is.
+- Every question comes with the resume line it's about. The code checks that line is really on your resume,
+  and drops the question if it isn't, so the interviewer can't ask about work you never did. If it can't find
+  enough, the rest come from the question bank.
+- The report shows the resume line behind each question.
+
+PDF, Markdown and plain text files all work. Your resume's text is sent to the model along with the round.
+
 ### Voice mode
 
 Hear the interviewer and answer out loud:
@@ -117,6 +138,7 @@ uv run onsite start --questions 4 --follow-ups 2        # more questions, fewer 
 uv run onsite start --seed 42                           # same questions every time
 uv run onsite start --voice                             # talk instead of type
 uv run onsite loop --level staff --voice                # a full loop, out loud
+uv run onsite start --resume resume.pdf                 # questions about your own work
 uv run onsite questions --track coding                  # list the question bank
 ```
 
@@ -154,6 +176,9 @@ flowchart LR
    scores always give the same result.
 5. **Committee** (`committee.py`). In a full loop, every round's decision feeds one more set of fixed rules.
    The model only writes the notes, and any pattern it claims must name two rounds that really happened.
+6. **Resume questions** (`resume.py`). With `--resume`, the model writes questions about your resume before
+   the round starts, each with the exact line it's about. The code drops any question whose line isn't on the
+   resume, and any second question about the same line.
 
 ## Development
 
@@ -168,7 +193,7 @@ include the audio tests. They don't need a microphone or speakers.
 
 - [x] Voice mode: speak your answers and hear the interviewer
 - [ ] Web app with a code editor and a whiteboard for design rounds
-- [ ] Questions based on your resume
+- [x] Questions based on your resume
 - [x] Full onsite loop: several rounds and one combined hiring decision
 - [ ] Progress over time across your saved reports
 - [ ] Bigger question bank
