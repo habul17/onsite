@@ -6,6 +6,7 @@ rewarding things the candidate never said.
 """
 
 import re
+from datetime import datetime
 from difflib import SequenceMatcher
 from functools import cache
 from statistics import mean
@@ -63,6 +64,7 @@ class RoundReport(BaseModel):
     criterion_means: dict[str, float]
     mean: float
     recommendation: str
+    taken_at: datetime | None = Field(default=None, description="When it finished. Older reports don't have it.")
 
 
 @cache

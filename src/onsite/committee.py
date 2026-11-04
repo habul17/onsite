@@ -5,6 +5,7 @@ committee's notes: what the rounds agree on, the biggest concern, the level call
 Its claims about patterns across rounds are checked against the rounds that really happened.
 """
 
+from datetime import datetime
 from statistics import mean
 from typing import Literal
 
@@ -49,6 +50,7 @@ class LoopReport(BaseModel):
     strongest_signal: str
     biggest_concern: str
     focus: list[str]
+    taken_at: datetime | None = Field(default=None, description="When it finished. Older reports don't have it.")
 
     @property
     def complete(self) -> bool:

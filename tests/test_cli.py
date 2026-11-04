@@ -1,8 +1,8 @@
 from typer.testing import CliRunner
 
 from onsite import bank, cli
-from onsite.committee import CommitteeNotes
-from onsite.grader import CriterionGrade, grade_schema
+from onsite.committee import CommitteeNotes, LoopReport
+from onsite.grader import CriterionGrade, RoundReport, grade_schema
 from onsite.interviewer import InterviewerTurn
 from onsite.models import Track
 from onsite.resume import ResumeQuestion, ResumeQuestions
@@ -35,7 +35,9 @@ def test_full_round_prints_scores_and_saves_a_report(monkeypatch, tmp_path, fake
     text = reports[0].read_text()
     assert ANSWER in text
     assert '"wrote the migration plan myself"' in text
-    assert list(tmp_path.glob("*.json"))
+    saved = RoundReport.model_validate_json(next(tmp_path.glob("*.json")).read_text())
+    assert saved.taken_at is not None
+    assert reports[0].name.startswith(f"{saved.taken_at:%Y-%m-%d-%H%M}-behavioral")
 
 
 def test_quit_before_answering_grades_nothing(monkeypatch, tmp_path, fake_llm):
@@ -193,6 +195,9 @@ def test_loop_runs_every_round_then_the_committee_decides(monkeypatch, tmp_path,
     names = sorted(p.name for p in folder.iterdir())
     assert names == ["1-coding.json", "1-coding.md", "2-system_design.json", "2-system_design.md", "loop.json", "loop.md"]
     assert "[1. Coding](1-coding.md)" in (folder / "loop.md").read_text()
+    saved = LoopReport.model_validate_json((folder / "loop.json").read_text())
+    assert saved.taken_at is not None and all(r.taken_at for r in saved.rounds)
+    assert saved.rounds[0].taken_at <= saved.rounds[1].taken_at
     assert ANSWER in (folder / "2-system_design.md").read_text()
 
 

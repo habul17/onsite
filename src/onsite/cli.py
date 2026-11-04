@@ -89,6 +89,7 @@ def start(
     except LLMError as e:
         console.print(f"[red]Grading failed: {e}[/red]")
         raise typer.Exit(1)
+    report.taken_at = datetime.now()
 
     show(report)
     path = save(report, exchanges, out)
@@ -154,9 +155,10 @@ def loop(
             except LLMError as e:
                 console.print(f"[red]Grading failed: {e}[/red]")
                 raise typer.Exit(1)
+            report.taken_at = datetime.now()
             # Saved straight away, so a problem later on never loses a round you already did.
             graded.append(report)
-            files.append(write_round(report, exchanges, folder / f"{i}-{track.value}", now).name)
+            files.append(write_round(report, exchanges, folder / f"{i}-{track.value}").name)
 
         if not done:
             break
@@ -174,6 +176,7 @@ def loop(
         console.print(f"[red]The committee could not meet: {e}[/red]")
         console.print(f"Your round reports are saved in [bold]{folder}[/bold]")
         raise typer.Exit(1)
+    result.taken_at = now
 
     show_loop(result)
     (folder / "loop.md").write_text(loop_to_markdown(result, files, now))
@@ -435,12 +438,12 @@ def show_loop(result: LoopReport) -> None:
 
 
 def save(report: RoundReport, exchanges, folder: Path) -> Path:
-    now = datetime.now()
-    return write_round(report, exchanges, folder / f"{now:%Y-%m-%d-%H%M}-{report.track.value}", now)
+    when = report.taken_at or datetime.now()
+    return write_round(report, exchanges, folder / f"{when:%Y-%m-%d-%H%M}-{report.track.value}")
 
 
-def write_round(report: RoundReport, exchanges, stem: Path, when: datetime) -> Path:
+def write_round(report: RoundReport, exchanges, stem: Path) -> Path:
     stem.parent.mkdir(parents=True, exist_ok=True)
-    stem.with_suffix(".md").write_text(to_markdown(report, exchanges, when))
+    stem.with_suffix(".md").write_text(to_markdown(report, exchanges, report.taken_at))
     stem.with_suffix(".json").write_text(report.model_dump_json(indent=2))
     return stem.with_suffix(".md")
