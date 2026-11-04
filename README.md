@@ -27,6 +27,8 @@ onsite does both.
 - **It reads your resume.** Pass `--resume` and the interviewer asks about your real projects, the way a
   real one would after reading it. Every question must point at a line that's really on your resume, or it's
   thrown away.
+- **It tracks your progress.** `onsite progress` reads every report you've saved and shows which rubric
+  items are improving, which aren't, and what to practise next.
 - **A full onsite loop.** Run coding, system design and behavioral rounds back to back, each with its own
   interviewer. Then a hiring committee reads every round's feedback and makes one decision. It looks for
   patterns across rounds, can offer you the level below, and tells you the three things to practise next.
@@ -90,6 +92,20 @@ How the committee decides:
 
 Everything is saved in one folder in `reports/`: the committee write-up and each round's full report.
 
+### Progress over time
+
+```bash
+uv run onsite progress
+uv run onsite progress --track coding --level senior
+```
+
+- Rounds are grouped by kind and level. A 3 at senior isn't the same as a 3 at junior, so they're never mixed.
+- For each rubric item you see your earlier score, your recent score, the change, and a small chart of every
+  round. It compares your first few rounds with your last few, so one bad day doesn't swing the trend.
+- Rounds from a full loop count too, and so does the loop's final decision.
+- When you've met the bar in each of your last 3 rounds of a kind, it tells you you're ready.
+- It ends with the 3 rubric items furthest below the bar, so you know what to work on next.
+
 ### Questions from your resume
 
 ```bash
@@ -139,6 +155,7 @@ uv run onsite start --seed 42                           # same questions every t
 uv run onsite start --voice                             # talk instead of type
 uv run onsite loop --level staff --voice                # a full loop, out loud
 uv run onsite start --resume resume.pdf                 # questions about your own work
+uv run onsite progress                                  # how you're doing over time
 uv run onsite questions --track coding                  # list the question bank
 ```
 
@@ -179,6 +196,8 @@ flowchart LR
 6. **Resume questions** (`resume.py`). With `--resume`, the model writes questions about your resume before
    the round starts, each with the exact line it's about. The code drops any question whose line isn't on the
    resume, and any second question about the same line.
+7. **Progress** (`history.py`). Reads every saved report. Trends and the "work on next" list are plain maths
+   on your scores, so there's no model call and nothing leaves your machine.
 
 ## Development
 
@@ -195,7 +214,7 @@ include the audio tests. They don't need a microphone or speakers.
 - [ ] Web app with a code editor and a whiteboard for design rounds
 - [x] Questions based on your resume
 - [x] Full onsite loop: several rounds and one combined hiring decision
-- [ ] Progress over time across your saved reports
+- [x] Progress over time across your saved reports
 - [ ] Bigger question bank
 
 ## License
