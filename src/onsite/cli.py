@@ -1,4 +1,5 @@
-"""Command-line mock interviews: one round with `onsite start`, a full loop with `onsite loop`."""
+"""Command-line mock interviews: one round with `onsite start`, a full loop with `onsite loop`, and
+`onsite progress` to see how you are doing over time."""
 
 from collections import Counter
 from datetime import datetime
@@ -12,7 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from onsite import bank, committee
+from onsite import bank, committee, history
 from onsite.committee import LoopReport
 from onsite.grader import HIRE, RoundReport, grade_round
 from onsite.interviewer import Interview
@@ -182,6 +183,56 @@ def loop(
     (folder / "loop.md").write_text(loop_to_markdown(result, files, now))
     (folder / "loop.json").write_text(result.model_dump_json(indent=2))
     console.print(f"\nCommittee write-up and every round's report: [bold]{folder / 'loop.md'}[/bold]")
+
+
+@app.command()
+def progress(
+    reports: Annotated[Path, typer.Option(help="Folder your reports are saved in.")] = Path("reports"),
+    track: Annotated[Track | None, typer.Option(help="Only this kind of round.")] = None,
+    level: Annotated[Level | None, typer.Option(help="Only this level.")] = None,
+):
+    """See how you're doing over time, from every report you've saved."""
+    past = history.load(reports)
+    if past.unreadable:
+        names = ", ".join(str(p.relative_to(reports)) for p in past.unreadable[:3])
+        more = f" and {len(past.unreadable) - 3} more" if len(past.unreadable) > 3 else ""
+        console.print(f"[yellow]Skipped files that aren't onsite reports: {names}{more}[/yellow]")
+
+    groups = history.summarize(past, track, level)
+    if not groups:
+        console.print(f"No graded rounds in {reports} yet. Run onsite start or onsite loop first.")
+        raise typer.Exit()
+
+    count = sum(len(g.sessions) for g in groups)
+    first = min(g.sessions[0].when for g in groups)
+    console.print(f"\n[bold]Your progress[/bold]: {count} round{'s' if count != 1 else ''} since {first:%d %b %Y}")
+    console.print("[dim]Scores are 1 to 4, and 3 meets the bar for your level. Earlier and Recent compare your first "
+                  f"and last rounds, up to {history.WINDOW} each.[/dim]")
+    for g in groups:
+        show_progress(g)
+
+    loops = [lp for lp in past.loops if (level is None or lp.report.level == level)] if track is None else []
+    if loops:
+        table = Table(title="Full loops", title_justify="left")
+        for name in ("Date", "Level", "Decision", "Rounds", "Avg"):
+            table.add_column(name, justify="center" if name in ("Rounds", "Avg") else "left")
+        for lp in loops:
+            r = lp.report
+            done = f"{r.finished} of {r.planned}"
+            table.add_row(f"{lp.when:%d %b %Y}", r.level.value, r.decision, done, f"{r.mean:.1f}")
+        console.print()
+        console.print(table)
+
+    picked = history.focus(groups)
+    console.print("\n[bold]What to work on next[/bold]")
+    if not picked:
+        console.print("Every rubric item meets the bar in your recent rounds. Try the next level up.")
+    for n, (g, t) in enumerate(picked, 1):
+        where = f"{TRACK_NAMES[g.track]}, {g.level.value}"
+        moved = ""
+        if t.change is not None and abs(t.change) >= 0.05:
+            moved = f", {'up' if t.change > 0 else 'down'} from {t.earlier:.1f}"
+        console.print(Text.assemble(f"  {n}. ", (t.name, "bold"), f" ({where}): {t.recent:.1f} lately{moved}"))
 
 
 @app.command("voice-check")
@@ -435,6 +486,57 @@ def show_loop(result: LoopReport) -> None:
         console.print("\n[bold]What to practise next[/bold]")
         for n, item in enumerate(result.focus, 1):
             console.print(Text(f"  {n}. {item}"))
+
+
+SPARK = "▁▂▃▄▅▆▇█"
+SPARK_POINTS = 12
+
+
+def sparkline(scores: list[float]) -> Text:
+    """Scores on a fixed 1 to 4 scale, so a small change never looks bigger than it is. Latest point stands out."""
+    points = scores[-SPARK_POINTS:]
+    chars = [SPARK[round((min(max(x, 1), 4) - 1) / 3 * (len(SPARK) - 1))] for x in points]
+    return Text.assemble(("".join(chars[:-1]), "dim"), (chars[-1], "bold cyan"))
+
+
+def change_text(change: float | None) -> Text:
+    """Direction as an arrow and a sign, with colour on top, so it never relies on colour alone."""
+    if change is None:
+        return Text("-", style="dim")
+    if abs(change) < 0.05:
+        return Text("= 0.0", style="dim")
+    if change > 0:
+        return Text(f"▲ +{change:.1f}", style="green")
+    return Text(f"▼ {change:.1f}", style="red")
+
+
+def show_progress(g: "history.TrackProgress") -> None:
+    rounds = len(g.sessions)
+    table = Table(
+        title=f"{TRACK_NAMES[g.track].capitalize()}, {g.level.value} level: {rounds} round{'s' if rounds != 1 else ''}",
+        title_justify="left",
+    )
+    table.add_column("Rubric item")
+    for name in ("Earlier", "Recent", "Change"):
+        table.add_column(name, justify="right")
+    table.add_column("History")
+
+    def row(t: "history.Trend", style: str = "") -> None:
+        earlier = "-" if t.earlier is None else f"{t.earlier:.1f}"
+        table.add_row(Text(t.name, style=style), earlier, f"{t.recent:.1f}", change_text(t.change), sparkline(t.scores))
+
+    row(g.overall, "bold")
+    table.add_section()
+    for t in g.criteria:
+        row(t)
+
+    console.print()
+    console.print(table)
+    last = g.sessions[-history.WINDOW :]
+    calls = ", ".join(s.report.recommendation for s in last)
+    console.print(f"Last {len(last)} decision{'s' if len(last) != 1 else ''}, oldest first: {calls}")
+    if g.ready:
+        console.print(f"[green]✓ Ready:[/green] you met the bar in each of your last {history.WINDOW} rounds.")
 
 
 def save(report: RoundReport, exchanges, folder: Path) -> Path:

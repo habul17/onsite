@@ -1,3 +1,6 @@
+from datetime import datetime
+
+import pytest
 from typer.testing import CliRunner
 
 from onsite import bank, cli
@@ -6,6 +9,7 @@ from onsite.grader import CriterionGrade, RoundReport, grade_schema
 from onsite.interviewer import InterviewerTurn
 from onsite.models import Track
 from onsite.resume import ResumeQuestion, ResumeQuestions
+from test_committee import round_report
 
 ANSWER = "I owned the rollout and wrote the migration plan myself. It cut costs by 30 percent."
 
@@ -336,3 +340,77 @@ def test_loop_uses_the_resume_for_design_but_not_coding(monkeypatch, tmp_path, f
     assert "Write 1 question." in fake.calls[0]["system"]
     assert "Your resume says 'Built a fraud scoring service'." in result.output
     assert "Committee decision" in result.output
+
+
+def saved_round(folder, track, score, day, level=cli.Level.SENIOR):
+    report = round_report(track, score, level)
+    report.taken_at = datetime(2026, 10, day, 9)
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{report.taken_at:%Y-%m-%d-%H%M}-{track.value}.json").write_text(report.model_dump_json())
+    return report
+
+
+def progress(folder, *args):
+    return CliRunner().invoke(cli.app, ["progress", "--reports", str(folder), *args], terminal_width=120)
+
+
+def test_progress_shows_trends_and_what_to_work_on(tmp_path):
+    for day, score in enumerate([2, 3, 3, 4], 1):
+        saved_round(tmp_path, Track.CODING, score, day)
+    weak = saved_round(tmp_path, Track.BEHAVIORAL, 3, 5)
+    weak.criterion_means["impact"] = 1.0
+    (tmp_path / "2026-10-05-0900-behavioral.json").write_text(weak.model_dump_json())
+
+    result = progress(tmp_path)
+    assert result.exit_code == 0, result.output
+    assert "5 rounds since 01 Oct 2026" in result.output
+    assert "Coding, senior level: 4 rounds" in result.output
+    assert "Behavioral, senior level: 1 round" in result.output
+    assert "▲ +1.0" in result.output
+    assert "Last 3 decisions, oldest first: Hire, Hire, Strong Hire" in result.output
+    assert "Ready" in result.output
+    assert "1. Impact (behavioral, senior): 1.0 lately" in result.output
+
+
+def test_progress_says_which_way_a_weak_area_is_moving(tmp_path):
+    saved_round(tmp_path, Track.CODING, 1, 1)
+    saved_round(tmp_path, Track.CODING, 2, 2)
+    result = progress(tmp_path)
+    assert "(coding, senior): 2.0 lately, up from 1.0" in result.output
+    assert "Ready" not in result.output
+
+
+def test_progress_can_show_one_kind_of_round(tmp_path):
+    saved_round(tmp_path, Track.CODING, 3, 1)
+    saved_round(tmp_path, Track.BEHAVIORAL, 3, 2)
+    result = progress(tmp_path, "--track", "behavioral")
+    assert "Behavioral, senior level" in result.output
+    assert "Coding" not in result.output
+    assert "1 round since" in result.output
+
+
+def test_progress_with_nothing_saved_says_how_to_start(tmp_path):
+    result = progress(tmp_path / "reports")
+    assert result.exit_code == 0
+    assert "No graded rounds" in result.output and "onsite start" in result.output
+
+
+def test_progress_skips_files_that_are_not_reports(tmp_path):
+    saved_round(tmp_path, Track.CODING, 3, 1)
+    (tmp_path / "notes.json").write_text("{}")
+    result = progress(tmp_path)
+    assert result.exit_code == 0
+    assert "Skipped files that aren't onsite reports: notes.json" in result.output
+
+
+def test_sparkline_uses_a_fixed_scale_and_the_last_points():
+    assert cli.sparkline([1, 4]).plain == "▁█"
+    assert cli.sparkline([0.5, 2.5, 9]).plain == "▁▅█"
+    assert cli.sparkline([3.0] * 20).plain == "▆" * cli.SPARK_POINTS
+
+
+@pytest.mark.parametrize(
+    "change, shown", [(None, "-"), (0.02, "= 0.0"), (0.7, "▲ +0.7"), (-0.34, "▼ -0.3")]
+)
+def test_change_never_relies_on_colour_alone(change, shown):
+    assert cli.change_text(change).plain == shown
