@@ -104,3 +104,120 @@ questions:
       - How do you make sure messages show up in the same order for everyone in a group?
       - A chat server crashes with 100,000 users connected. What happens?
       - How would you add end-to-end encryption, and what does it break?
+
+  - id: notification-service
+    title: Notification service
+    prompt: Design a service that other teams call to send users push notifications, emails and text messages.
+    strong_signals:
+      - Asks about volume, how fast each kind must arrive, and which messages must never be lost (password resets) and which are nice to have (marketing).
+      - Puts requests on a queue with separate workers per channel, so a slow email provider can't hold up push.
+      - Stores user preferences and opt-outs and checks them before sending.
+      - Retries with backoff, moves messages that keep failing to a dead letter queue, and uses an idempotency key so a retry never sends twice.
+      - Rate limits per user so nobody gets flooded.
+    follow_ups:
+      - Marketing wants to send one message to 50 million users at 9am. What happens?
+      - An email provider goes down for an hour. What do users see, and what happens when it comes back?
+      - How would you let users see every notification they have been sent?
+
+  - id: typeahead
+    title: Search autocomplete
+    prompt: Design the autocomplete for a search box. As the user types, show the top 5 suggestions for what they have typed so far.
+    strong_signals:
+      - Estimates requests per second, noting there is a request per keystroke, and sets a tight latency budget of around 100 ms.
+      - Serves suggestions from memory, with a trie or a map from prefix to its top results worked out ahead of time.
+      - Builds the suggestion data offline from search logs on a schedule, away from the serving path.
+      - Cuts load with debouncing in the client, browser caching and caching popular prefixes close to users.
+      - Shards by prefix and handles hot prefixes such as single letters.
+    follow_ups:
+      - How do searches that are trending in the last hour show up quickly?
+      - How would you remove offensive suggestions?
+      - How would you personalise suggestions for each user?
+
+  - id: ticket-booking
+    title: Event ticket booking
+    prompt: Design a site for booking seats at concerts. Popular shows sell out within minutes of going on sale.
+    strong_signals:
+      - Separates browsing, which is read-heavy and can be cached, from booking, which must be correct.
+      - Holds a seat for a few minutes while the user pays, and lets the hold expire on its own.
+      - Prevents double booking with a transaction, a row lock or a conditional update on the seat.
+      - Handles the rush with a virtual waiting room in front of booking.
+      - Makes payment idempotent and handles a payment that succeeds after the hold has expired.
+    follow_ups:
+      - 500,000 people try to buy 20,000 seats in the same second. Walk me through it.
+      - How do you stop bots from buying all the tickets?
+      - How would you split the data when thousands of events are on sale at once?
+
+  - id: web-crawler
+    title: Web crawler
+    levels: [mid, senior, staff]
+    prompt: Design a web crawler that downloads a billion pages a month for a search engine.
+    strong_signals:
+      - Works out the pages per second (around 400) and the storage needed for the pages.
+      - Keeps a URL frontier with priorities and a separate queue per website, so it stays polite.
+      - Respects robots.txt and a rate limit per website.
+      - Removes duplicate URLs after normalising them, and duplicate pages using a hash of the content.
+      - Avoids crawler traps, such as endless calendar pages, with depth and page limits per site.
+    follow_ups:
+      - How do you decide how often to crawl a page again?
+      - A crawler machine dies halfway through its queue. What happens to its URLs?
+      - How would you crawl pages that need JavaScript to show their content?
+
+  - id: ride-sharing
+    title: Ride sharing
+    levels: [senior, staff]
+    prompt: Design the backend for a ride sharing app that matches riders with nearby drivers.
+    strong_signals:
+      - Estimates how many drivers send their location and how often (every few seconds), so location writes are the main load.
+      - Keeps live driver locations in memory, indexed by geohash, quadtree or a hexagon grid, not in the main database.
+      - Matches a rider with nearby available drivers and makes sure one driver can't accept two rides.
+      - Models the trip as a state machine (requested, matched, picked up, finished) stored durably.
+      - Shards location data by area and handles busy areas such as airports.
+    follow_ups:
+      - How do you find drivers near a rider standing on the edge of a grid cell?
+      - What happens when a driver's phone loses signal halfway through a trip?
+      - How would you add surge pricing?
+
+  - id: video-streaming
+    title: Video streaming
+    levels: [senior, staff]
+    prompt: Design a video platform where creators upload videos and millions of viewers watch them.
+    strong_signals:
+      - Separates the upload path from the watch path, which is far busier.
+      - Uploads in resumable chunks straight to object storage, then transcodes into several resolutions with a pipeline of jobs.
+      - Uses adaptive bitrate streaming (HLS or DASH) so the player changes quality with the network.
+      - Serves video from a CDN and explains what the origin still has to handle.
+      - Stores metadata such as titles separately, and counts views without writing to one row for every view.
+    follow_ups:
+      - A video goes viral minutes after upload. What happens before the CDN has it?
+      - How would you cut storage costs for old videos that nobody watches?
+      - Transcoding fails halfway through a 4-hour video. What happens?
+
+  - id: key-value-store
+    title: Distributed key-value store
+    levels: [senior, staff]
+    prompt: Design a key-value store spread across many machines that stays available when some of them fail.
+    strong_signals:
+      - Asks what consistency is needed and uses the CAP theorem to explain what happens during a network split.
+      - Partitions keys with consistent hashing and virtual nodes, so adding a machine moves few keys.
+      - Replicates each key to N machines and uses quorum reads and writes (R + W > N), or one leader per partition.
+      - Resolves conflicting writes with versions such as vector clocks, or last write wins and explains what that loses.
+      - Detects failed machines with heartbeats or gossip, and repairs replicas with hinted handoff or anti-entropy.
+    follow_ups:
+      - Walk me through a write when one of the three replicas is down.
+      - How would you add a machine to the cluster without downtime?
+      - Some keys get far more traffic than the rest. What do you do?
+
+  - id: metrics-monitoring
+    title: Metrics and alerting
+    levels: [senior, staff]
+    prompt: Design a system that collects metrics such as CPU use and request latency from 100,000 servers, shows them on dashboards and sends alerts.
+    strong_signals:
+      - Estimates data points per second from the number of servers, metrics per server and how often they report.
+      - Chooses push or pull collection and explains why.
+      - Stores data in a time-series database and keeps older data at lower resolution to save space.
+      - Handles high cardinality, such as a label with one value per user, which can blow up storage.
+      - Evaluates alert rules on the incoming stream and groups duplicate alerts, so one outage doesn't page someone 1,000 times.
+    follow_ups:
+      - How do you make sure alerts still fire when the metrics system itself is struggling?
+      - Dashboards for the last 30 days are slow. How do you speed them up?
+      - How would you work out the 99th percentile latency across all servers?
