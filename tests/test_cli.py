@@ -305,7 +305,8 @@ def test_questions_the_resume_cant_back_up_come_from_the_bank(monkeypatch, tmp_p
     assert result.exit_code == 0, result.output
     assert "Only 0 of 1 behavioral questions could be tied to your resume" in result.output
     banked = bank.pick(Track.BEHAVIORAL, cli.Level.MID, 1, seed=1)[0]
-    assert banked.prompt.strip().splitlines()[0] in result.output
+    # Long questions wrap on screen, so compare the words and not the line breaks.
+    assert " ".join(banked.prompt.split()) in " ".join(result.output.split())
 
 
 def test_coding_rounds_ignore_the_resume(monkeypatch, tmp_path, fake_llm):

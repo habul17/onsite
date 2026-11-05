@@ -126,3 +126,126 @@ questions:
       - What was the hardest technical decision, and what were the options?
       - What broke or surprised you along the way?
       - If you rebuilt it today, what would you do differently?
+
+  - id: critical-feedback
+    title: Feedback that was hard to hear
+    prompt: Tell me about a time you got critical feedback that was hard to hear. What did you do with it?
+    strong_signals:
+      - Picks real feedback about something that mattered, not a small style comment.
+      - Is honest about their first reaction, then explains how they handled it.
+      - Names a specific change in how they work because of it.
+      - Shows the change stuck, with an example from later work.
+    follow_ups:
+      - Did you agree with the feedback at first?
+      - How did the person who gave it know you had acted on it?
+      - Tell me about hard feedback you have given to someone else.
+
+  - id: learn-fast
+    title: Learning something new quickly
+    levels: [junior, mid]
+    prompt: Tell me about a time you had to learn a new technology or area quickly to get something done.
+    strong_signals:
+      - Explains why speed mattered and what was at stake.
+      - Had a plan for learning, such as starting with only what the task needed.
+      - Used a good mix of docs, small experiments and asking people.
+      - Delivered the work and is honest about how well it went, including gaps they fixed later.
+    follow_ups:
+      - What did you choose not to learn, and was that the right call?
+      - When did you ask for help, and who did you ask?
+      - How would you learn it faster next time?
+
+  - id: competing-priorities
+    title: Competing priorities
+    prompt: Tell me about a time two people or teams needed different things from you at the same time and you could not do both.
+    strong_signals:
+      - Explains the real cost of each option, not just that both were urgent.
+      - Got the people involved, or their managers, to agree on the order instead of quietly choosing.
+      - Told the side that had to wait clearly, with a date.
+      - Says how it turned out for both sides.
+    follow_ups:
+      - Who was unhappy with the decision, and how did you handle it?
+      - What would have happened if you had tried to do both?
+      - How do you decide what to work on when nobody tells you?
+
+  - id: user-problem
+    title: Going beyond your work for users
+    prompt: Tell me about a time you went beyond your assigned work to fix a problem for users or customers.
+    strong_signals:
+      - Explains how they found the problem, ideally from data or from talking to users.
+      - Explains why it was worth doing ahead of their other work.
+      - Fixed the cause, not only the symptom.
+      - Gives the effect on users with numbers, such as fewer support tickets or more users staying.
+    follow_ups:
+      - How did you know it mattered to users and not just to you?
+      - What did you stop doing to make time for it?
+      - Did anyone push back on you working on it?
+
+  - id: mentoring
+    title: Helping someone grow
+    levels: [mid, senior, staff]
+    prompt: Tell me about a time you helped a teammate grow, for example someone new or someone who was struggling.
+    strong_signals:
+      - Shaped their help around what that person needed, instead of one approach for everyone.
+      - Let the person do the work themselves rather than doing it for them.
+      - Gave honest feedback, including things that were hard to say.
+      - Shows how the person grew, with concrete examples of what they could do afterwards.
+    follow_ups:
+      - What did you try that didn't work?
+      - How did you fit this around your own work?
+      - What did it teach you about mentoring?
+
+  - id: tech-debt
+    title: Fixing what slows the team down
+    levels: [mid, senior, staff]
+    prompt: Tell me about a time you made the case for fixing technical debt or a tooling problem instead of building new features.
+    strong_signals:
+      - Measured the cost of the problem, such as hours lost, incidents or slow releases.
+      - Explained it in terms the business cared about, not only engineering taste.
+      - Proposed a plan small or gradual enough to get approved.
+      - Shows the result with before and after numbers.
+    follow_ups:
+      - How did you decide this was worth more than the features it delayed?
+      - Who was hardest to convince?
+      - How do you stop the same debt from building up again?
+
+  - id: struggling-teammate
+    title: A teammate who isn't delivering
+    levels: [senior, staff]
+    prompt: Tell me about a time someone on your team was not pulling their weight. How did you handle it?
+    strong_signals:
+      - Talked to the person directly and early, and tried to understand the cause first.
+      - Was specific about the gap, with examples rather than labels.
+      - Agreed clear expectations with them and followed up.
+      - Brought in their manager at the right time, and protected the project in the meantime.
+    follow_ups:
+      - What was really going on for that person?
+      - How did the rest of the team see the situation?
+      - Would you handle it the same way again?
+
+  - id: cross-team-project
+    title: Leading across teams
+    levels: [senior, staff]
+    prompt: Tell me about a project you led that needed several teams to deliver their parts. How did you keep it on track?
+    strong_signals:
+      - Got the teams to agree on goals, owners and interfaces early.
+      - Found dependencies and risks ahead of time and kept track of them.
+      - Handled at least one team that slipped or disagreed, with specifics.
+      - Gives the outcome and their own part in it, with numbers.
+    follow_ups:
+      - Which team was hardest to work with, and why?
+      - What would you set up differently from day one?
+      - How did you keep leaders informed without drowning them in detail?
+
+  - id: technical-direction
+    title: Setting technical direction
+    levels: [staff]
+    prompt: Tell me about a time you set the technical direction for a large area beyond your own team. How did you get people to follow it?
+    strong_signals:
+      - Explains the problem in the organisation that made a new direction necessary.
+      - Wrote it down in a strategy or design doc, with the options considered and why they chose one.
+      - Won support from senior engineers and leaders across teams, and changed the plan based on their input.
+      - Shows teams actually moved in that direction, with measurable results over months.
+    follow_ups:
+      - Who disagreed most, and how did you resolve it?
+      - What part of the direction turned out to be wrong, and how did you change it?
+      - How did you make sure it didn't depend on you being in every meeting?
