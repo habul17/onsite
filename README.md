@@ -41,8 +41,10 @@ onsite does both.
 | `coding` | Problem understanding, approach, correctness, complexity, communication |
 | `system_design` | Requirements, high-level design, deep dive, trade-offs, communication |
 
-Each question comes with what a strong answer covers and the follow-ups a real interviewer would use. See
-[`src/onsite/bank`](src/onsite/bank).
+The bank has 43 questions: 15 behavioral, 16 coding and 12 system design. Each one is tagged with the levels
+it suits, so a junior isn't asked to design a distributed key-value store and a staff engineer isn't asked
+two sum. Each question comes with what a strong answer covers and the follow-ups a real interviewer would use.
+Run `onsite questions` to see them, or browse [`src/onsite/bank`](src/onsite/bank).
 
 ## Quick start
 
@@ -156,7 +158,7 @@ uv run onsite start --voice                             # talk instead of type
 uv run onsite loop --level staff --voice                # a full loop, out loud
 uv run onsite start --resume resume.pdf                 # questions about your own work
 uv run onsite progress                                  # how you're doing over time
-uv run onsite questions --track coding                  # list the question bank
+uv run onsite questions --track coding --level senior   # the coding problems asked at senior
 ```
 
 | Variable | What it does | Default |
@@ -215,7 +217,7 @@ include the audio tests. They don't need a microphone or speakers.
 - [x] Questions based on your resume
 - [x] Full onsite loop: several rounds and one combined hiring decision
 - [x] Progress over time across your saved reports
-- [ ] Bigger question bank
+- [x] Bigger question bank, with questions tagged by level
 
 ## License
 
