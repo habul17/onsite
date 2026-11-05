@@ -415,3 +415,32 @@ def test_sparkline_uses_a_fixed_scale_and_the_last_points():
 )
 def test_change_never_relies_on_colour_alone(change, shown):
     assert cli.change_text(change).plain == shown
+
+
+def test_questions_lists_every_kind_by_default():
+    result = CliRunner().invoke(cli.app, ["questions"])
+
+    assert result.exit_code == 0, result.output
+    for track in Track:
+        count = len(bank.load(track).questions)
+        assert f"{cli.TRACK_NAMES[track].capitalize()}: {count} questions" in result.output
+
+
+def test_questions_only_shows_what_suits_the_level():
+    result = CliRunner().invoke(cli.app, ["questions", "--track", "system_design", "--level", "junior"])
+
+    assert result.exit_code == 0, result.output
+    junior = [q for q in bank.load(Track.SYSTEM_DESIGN).questions if cli.Level.JUNIOR in q.levels]
+    assert f"System design: {len(junior)} questions for junior" in result.output
+    assert "url-shortener" in result.output
+    assert "ride-sharing" not in result.output
+    assert "Coding" not in result.output
+
+
+def test_level_range():
+    L = cli.Level
+    assert cli.level_range(list(L)) == "all"
+    assert cli.level_range([L.STAFF, L.MID, L.SENIOR]) == "mid to staff"
+    assert cli.level_range([L.JUNIOR]) == "junior"
+    assert cli.level_range([L.SENIOR, L.STAFF]) == "senior and staff"
+    assert cli.level_range([L.JUNIOR, L.SENIOR]) == "junior, senior"

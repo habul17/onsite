@@ -255,12 +255,32 @@ def voice_check():
 
 
 @app.command("questions")
-def list_questions(track: Annotated[Track, typer.Option()] = Track.BEHAVIORAL):
-    """List the questions in the bank for a track."""
-    table = Table("id", "title", "levels")
-    for q in bank.load(track).questions:
-        table.add_row(q.id, q.title, ", ".join(lv.value for lv in q.levels))
-    console.print(table)
+def list_questions(
+    track: Annotated[Track | None, typer.Option(help="Only this kind of round. Leave out for every kind.")] = None,
+    level: Annotated[Level | None, typer.Option(help="Only questions asked at this level.")] = None,
+):
+    """List the questions in the bank."""
+    for t in [track] if track else list(Track):
+        picked = [q for q in bank.load(t).questions if level is None or level in q.levels]
+        for_level = f" for {level}" if level else ""
+        title = f"{TRACK_NAMES[t].capitalize()}: {len(picked)} question{'s' if len(picked) != 1 else ''}{for_level}"
+        table = Table("id", "title", "levels", title=title, title_justify="left", title_style="bold")
+        for q in picked:
+            table.add_row(q.id, q.title, level_range(q.levels))
+        console.print(table)
+        console.print()
+
+
+def level_range(levels: list[Level]) -> str:
+    """Levels as "all", "mid to staff" or "junior", rather than every level spelled out."""
+    order = list(Level)
+    spots = sorted(order.index(lv) for lv in set(levels))
+    if len(spots) == len(order):
+        return "all"
+    if len(spots) > 1 and spots == list(range(spots[0], spots[-1] + 1)):
+        joiner = "and" if len(spots) == 2 else "to"
+        return f"{order[spots[0]]} {joiner} {order[spots[-1]]}"
+    return ", ".join(order[i] for i in spots)
 
 
 def run_round(interview: Interview, speech=None) -> bool:
