@@ -8,6 +8,10 @@ import yaml
 
 from onsite.models import Level, Question, Track, TrackBank
 
+# Coding and design rounds are a long back-and-forth, so they get many more turns per question.
+DEFAULT_QUESTIONS = {Track.BEHAVIORAL: 3, Track.CODING: 1, Track.SYSTEM_DESIGN: 1}
+DEFAULT_FOLLOW_UPS = {Track.BEHAVIORAL: 3, Track.CODING: 12, Track.SYSTEM_DESIGN: 15}
+
 
 @cache
 def load(track: Track) -> TrackBank:

@@ -14,11 +14,12 @@ from rich.table import Table
 from rich.text import Text
 
 from onsite import bank, committee, history
+from onsite.bank import DEFAULT_FOLLOW_UPS, DEFAULT_QUESTIONS
 from onsite.committee import LoopReport
 from onsite.grader import HIRE, RoundReport, grade_round
 from onsite.interviewer import Interview
 from onsite.llm import AnthropicLLM, LLMError
-from onsite.models import Exchange, Level, Question, Track
+from onsite.models import Level, Question, Track
 from onsite.prompts import TRACK_NAMES
 from onsite.report import loop_to_markdown, save_round, write_round
 from onsite.resume import TRACKS as RESUME_TRACKS
@@ -26,10 +27,6 @@ from onsite.resume import ResumeError, questions_from_resume, read_resume
 
 app = typer.Typer(add_completion=False, help="An AI mock interviewer for software engineering onsites.")
 console = Console()
-
-# Coding and design rounds are a long back-and-forth, so they get many more turns per question.
-DEFAULT_QUESTIONS = {Track.BEHAVIORAL: 3, Track.CODING: 1, Track.SYSTEM_DESIGN: 1}
-DEFAULT_FOLLOW_UPS = {Track.BEHAVIORAL: 3, Track.CODING: 12, Track.SYSTEM_DESIGN: 15}
 
 # The usual shape of a real onsite: problem solving first, then design, then the behavioral chat.
 DEFAULT_LOOP = [Track.CODING, Track.SYSTEM_DESIGN, Track.BEHAVIORAL]
@@ -79,7 +76,7 @@ def start(
     console.print(Panel(VOICE_HELP_TEXT if speech else HELP_TEXT, title=title))
 
     run_round(interview, speech)
-    exchanges = answered(interview)
+    exchanges = interview.answered()
     if not exchanges:
         console.print("Nothing to grade.")
         raise typer.Exit()
@@ -149,7 +146,7 @@ def loop(
         if done:
             finished += 1
 
-        if exchanges := answered(interview):
+        if exchanges := interview.answered():
             try:
                 with console.status("Interviewer is writing up their feedback..."):
                     report = grade_round(llm, track_bank, level, exchanges)
@@ -305,11 +302,6 @@ def run_round(interview: Interview, speech=None) -> bool:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
     return True
-
-
-def answered(interview: Interview) -> list[Exchange]:
-    """The questions worth grading: ones the candidate answered or chose to skip."""
-    return [ex for ex in interview.exchanges if any(t.speaker == "candidate" for t in ex.turns) or ex.skipped]
 
 
 def make_llm() -> AnthropicLLM:

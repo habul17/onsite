@@ -82,6 +82,10 @@ class Interview:
         self.current.notes.append("Candidate chose to skip this question.")
         return self._next("No problem, let's move on.")
 
+    def answered(self) -> list[Exchange]:
+        """The questions worth grading: ones the candidate answered or chose to skip."""
+        return [ex for ex in self.exchanges if ex.skipped or any(t.speaker == "candidate" for t in ex.turns)]
+
     def _ask(self, question: Question) -> str:
         exchange = Exchange(question=question)
         exchange.turns.append(Turn(speaker="interviewer", text=question.prompt.strip()))
