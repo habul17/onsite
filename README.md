@@ -20,6 +20,9 @@ onsite does both.
   credit.
 - **Graded for your level.** The bar for a junior is not the bar for a staff engineer. Each round is scored
   against the level you pick.
+- **Practise in the browser.** `onsite web` opens a page with the interviewer on one side and a code editor
+  on the other, like the shared editor in a real coding round. Your code goes to the interviewer with your
+  next answer whenever it changes.
 - **You can talk instead of type.** With `--voice` the interviewer speaks and you answer out loud, like a
   real call. Speech runs on your machine, so your voice never leaves it.
 - **Hiring committee style result.** Scores on a 1 to 4 scale per rubric item, then a decision from Strong No
@@ -94,6 +97,23 @@ How the committee decides:
 
 Everything is saved in one folder in `reports/`: the committee write-up and each round's full report.
 
+### In the browser
+
+```bash
+uv sync --extra web
+uv run onsite web
+```
+
+- Pick a round and a level, and the page opens the round. Enter sends your answer, Shift+Enter starts a new
+  line.
+- Coding rounds put a code editor beside the chat, with line numbers, Tab to indent and auto-indent on Enter.
+  Ctrl+Enter sends from the editor. Your code is sent with your next answer, but only when it has changed.
+- Coding and design rounds keep the question pinned above the chat while you work.
+- The report shows the decision, every score, and why each score was given, with the quotes behind it. It's
+  saved to `reports/` like any other round, so `onsite progress` counts it.
+- It runs only on your machine. The server listens on 127.0.0.1 and refuses requests addressed to any other
+  host name, so another website can't use it to spend your API key.
+
 ### Progress over time
 
 ```bash
@@ -158,6 +178,7 @@ uv run onsite start --voice                             # talk instead of type
 uv run onsite loop --level staff --voice                # a full loop, out loud
 uv run onsite start --resume resume.pdf                 # questions about your own work
 uv run onsite progress                                  # how you're doing over time
+uv run onsite web --port 8080                           # practise in the browser
 uv run onsite questions --track coding --level senior   # the coding problems asked at senior
 ```
 
@@ -200,6 +221,8 @@ flowchart LR
    resume, and any second question about the same line.
 7. **Progress** (`history.py`). Reads every saved report. Trends and the "work on next" list are plain maths
    on your scores, so there's no model call and nothing leaves your machine.
+8. **Web app** (`web/`). The same interviewer and grader behind a small local API, and a page with no build
+   step. A second click while the interviewer is thinking is refused, so an answer is never sent twice.
 
 ## Development
 
@@ -207,13 +230,14 @@ flowchart LR
 uv run pytest
 ```
 
-The tests use a fake model, so they run offline and cost nothing. Run `uv sync --extra voice` first to
-include the audio tests. They don't need a microphone or speakers.
+The tests use a fake model, so they run offline and cost nothing. Run `uv sync --extra voice --extra web`
+first to include the audio and web app tests. They don't need a microphone, speakers or a browser.
 
 ## Roadmap
 
 - [x] Voice mode: speak your answers and hear the interviewer
-- [ ] Web app with a code editor and a whiteboard for design rounds
+- [x] Web app with a code editor for coding rounds
+- [ ] Whiteboard in the web app for design rounds
 - [x] Questions based on your resume
 - [x] Full onsite loop: several rounds and one combined hiring decision
 - [x] Progress over time across your saved reports
