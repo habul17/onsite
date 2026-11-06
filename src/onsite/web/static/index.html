@@ -1,1 +1,88 @@
-<!doctype html><title>onsite</title>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>onsite</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/editor.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <span class="brand">onsite</span>
+    <span id="round-label" class="muted"></span>
+  </header>
+
+  <main>
+    <!-- 1. Pick a round -->
+    <section id="setup" class="screen">
+      <h1>Practise an interview round</h1>
+      <p class="muted">The interviewer stays neutral. You find out how you did at the end, like a real loop.</p>
+
+      <form id="setup-form">
+        <fieldset>
+          <legend>Round</legend>
+          <div id="tracks" class="choices"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Level</legend>
+          <div id="levels" class="choices"></div>
+        </fieldset>
+        <p id="pool" class="muted"></p>
+        <button type="submit" class="primary" id="start">Start round</button>
+        <p id="setup-error" class="error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <!-- 2. The round -->
+    <section id="round" class="screen" hidden>
+      <div class="round-grid">
+        <div class="talk">
+          <div class="problem" id="problem" hidden>
+            <h2 id="problem-title"></h2>
+            <pre id="problem-text"></pre>
+          </div>
+          <ol id="log" class="log" aria-live="polite" aria-label="Conversation"></ol>
+          <p id="thinking" class="thinking" hidden>Interviewer is thinking…</p>
+          <form id="answer-form" class="answer">
+            <label for="answer" class="sr-only">Your answer</label>
+            <textarea id="answer" rows="4" placeholder="Think out loud. Enter sends, Shift+Enter for a new line."></textarea>
+            <div class="actions">
+              <span id="progress" class="muted"></span>
+              <button type="button" id="skip">Skip question</button>
+              <button type="button" id="finish">Finish and grade</button>
+              <button type="submit" class="primary" id="send">Send</button>
+            </div>
+          </form>
+          <p id="error" class="error" role="alert" hidden></p>
+        </div>
+
+        <div class="code" id="code-pane" hidden>
+          <div class="code-head">
+            <label for="code">Your code</label>
+            <span class="muted">Sent with your next answer when it changes. Ctrl+Enter sends. Esc then Tab leaves the editor.</span>
+          </div>
+          <div class="editor">
+            <pre class="gutter" id="gutter" aria-hidden="true">1</pre>
+            <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. The report -->
+    <section id="report" class="screen" hidden>
+      <p class="muted" id="report-kind"></p>
+      <h1 id="decision" tabindex="-1"></h1>
+      <p id="mean" class="mean"></p>
+      <table id="scores" class="scores"></table>
+      <p id="capped-note" class="muted" hidden>* No real quote from your answers supported a higher score.</p>
+      <div id="feedback"></div>
+      <p class="muted">Full report with evidence and transcript: <code id="saved-to"></code></p>
+      <button type="button" class="primary" id="again">Practise another round</button>
+    </section>
+  </main>
+</body>
+</html>

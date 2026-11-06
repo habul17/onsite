@@ -1,0 +1,169 @@
+:root {
+  --bg: #fafaf9;
+  --panel: #ffffff;
+  --text: #1c1917;
+  --muted: #57534e;
+  --line: #e7e5e4;
+  --accent: #0e7490;
+  --accent-text: #ffffff;
+  --you: #ecfeff;
+  --good: #15803d;
+  --bad: #b91c1c;
+  --code-bg: #f5f5f4;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c0a09;
+    --panel: #1c1917;
+    --text: #f5f5f4;
+    --muted: #a8a29e;
+    --line: #292524;
+    --accent: #22d3ee;
+    --accent-text: #083344;
+    --you: #083344;
+    --good: #4ade80;
+    --bad: #f87171;
+    --code-bg: #0c0a09;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.top {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { font-weight: 700; letter-spacing: 0.02em; }
+.muted { color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+.screen[hidden] { display: none; }
+#setup, #report { max-width: 760px; }
+
+h1 { font-size: 1.75rem; margin: 0 0 0.25rem; }
+h2 { font-size: 1.1rem; margin: 0 0 0.5rem; }
+
+fieldset { border: 0; padding: 0; margin: 1.25rem 0; }
+legend { font-weight: 600; margin-bottom: 0.5rem; }
+.choices { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.choices label {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}
+.choices input { position: absolute; opacity: 0; }
+.choices label:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
+.choices label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+button {
+  font: inherit;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: default; }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* The round */
+.round-grid { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); }
+.round-grid.with-code { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+@media (max-width: 900px) { .round-grid.with-code { grid-template-columns: minmax(0, 1fr); } }
+.round-grid:not(.with-code) .talk { max-width: 820px; }
+
+.talk { display: flex; flex-direction: column; gap: 0.75rem; min-height: calc(100vh - 8rem); }
+.problem { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; }
+.problem pre { margin: 0; white-space: pre-wrap; font: 0.85rem/1.5 var(--mono); }
+
+.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; flex: 1; }
+/* Room for the answer box stuck to the bottom, so the newest message is never hidden behind it. */
+.log li { padding: 0.75rem 1rem; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; scroll-margin-bottom: 13rem; }
+.log .who { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 0.15rem; }
+.log .interviewer { background: var(--panel); border: 1px solid var(--line); }
+.log .candidate { background: var(--you); margin-left: 2rem; }
+
+.thinking { color: var(--muted); margin: 0; }
+.thinking::after { content: ""; animation: dots 1.2s steps(4) infinite; }
+@keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+@media (prefers-reduced-motion: reduce) { .thinking::after { animation: none; } }
+
+.answer { position: sticky; bottom: 0; background: var(--bg); padding-top: 0.5rem; }
+.answer textarea {
+  width: 100%;
+  font: inherit;
+  padding: 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  resize: vertical;
+}
+.actions { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+.actions #progress { margin-right: auto; }
+.error { color: var(--bad); margin: 0; }
+
+/* The code editor */
+.code { display: flex; flex-direction: column; gap: 0.5rem; position: sticky; top: 1rem; height: calc(100vh - 8rem); }
+.code-head { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; align-items: baseline; font-size: 0.9rem; }
+.code-head label { font-weight: 600; }
+.editor {
+  display: flex;
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--code-bg);
+  overflow: hidden;
+}
+.editor:focus-within { border-color: var(--accent); }
+.gutter, .editor textarea { font: 0.92rem/1.5 var(--mono); padding: 0.75rem 0.5rem; margin: 0; }
+.gutter { color: var(--muted); text-align: right; min-width: 3rem; user-select: none; overflow: hidden; border-right: 1px solid var(--line); }
+.editor textarea {
+  flex: 1;
+  border: 0;
+  resize: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  white-space: pre;
+  overflow: auto;
+  tab-size: 4;
+}
+
+/* The report */
+.mean { font-size: 1.1rem; margin-top: 0; }
+.hire { color: var(--good); }
+.no-hire { color: var(--bad); }
+.scores { border-collapse: collapse; margin: 1rem 0; width: 100%; }
+.scores th, .scores td { padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--line); text-align: center; }
+.scores th:first-child, .scores td:first-child { text-align: left; }
+.scores td.avg, .scores th.avg { font-weight: 700; }
+.scores td { font-variant-numeric: tabular-nums; }
+.question { border-top: 1px solid var(--line); padding-top: 1rem; margin-top: 1rem; }
+.question ul { margin: 0.25rem 0 0.75rem; padding-left: 1.25rem; }
+.question h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.question h4 { margin: 0.5rem 0 0; font-size: 0.95rem; }
+.question p { margin: 0.25rem 0 0.75rem; }
+details { margin: 0.5rem 0; }
+details blockquote { margin: 0.25rem 0 0.5rem 0.75rem; padding-left: 0.75rem; border-left: 3px solid var(--line); color: var(--muted); }
+code { font-family: var(--mono); font-size: 0.9em; }
