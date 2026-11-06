@@ -1,3 +1,5 @@
+import socket
+import sys
 from datetime import datetime
 
 import pytest
@@ -444,3 +446,52 @@ def test_level_range():
     assert cli.level_range([L.JUNIOR]) == "junior"
     assert cli.level_range([L.SENIOR, L.STAFF]) == "senior and staff"
     assert cli.level_range([L.JUNIOR, L.SENIOR]) == "junior, senior"
+
+
+@pytest.fixture
+def served(monkeypatch, fake_llm):
+    """Runs `onsite web` without starting a server or opening a browser, and records what it would do."""
+    uvicorn = pytest.importorskip("uvicorn")
+    seen = {}
+    monkeypatch.setattr(cli, "AnthropicLLM", lambda: fake_llm())
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: seen.update(app=app, **kw))
+    monkeypatch.setattr(cli.threading, "Timer", lambda delay, fn, args: seen.update(opened=args[0]) or FakeTimer())
+    return seen
+
+
+class FakeTimer:
+    def start(self):
+        pass
+
+
+def test_web_only_listens_on_this_machine(served, tmp_path):
+    result = CliRunner().invoke(cli.app, ["web", "--port", "8123", "--out", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    assert (served["host"], served["port"]) == ("127.0.0.1", 8123)
+    assert served["opened"] == "http://127.0.0.1:8123"
+    assert "http://127.0.0.1:8123" in result.output
+
+
+def test_web_can_skip_opening_the_browser(served):
+    result = CliRunner().invoke(cli.app, ["web", "--no-open"])
+    assert result.exit_code == 0, result.output
+    assert "opened" not in served
+
+
+def test_web_says_when_the_port_is_taken(served):
+    with socket.socket() as busy:
+        busy.bind(("127.0.0.1", 0))
+        busy.listen()
+        port = busy.getsockname()[1]
+        result = CliRunner().invoke(cli.app, ["web", "--port", str(port)])
+
+    assert result.exit_code == 1
+    assert f"Port {port} is already in use" in result.output and "app" not in served
+
+
+def test_web_explains_the_missing_extra(monkeypatch):
+    monkeypatch.setitem(sys.modules, "uvicorn", None)
+    result = CliRunner().invoke(cli.app, ["web"])
+    assert result.exit_code == 1
+    assert "uv sync --extra web" in result.output

@@ -1,6 +1,9 @@
-"""Command-line mock interviews: one round with `onsite start`, a full loop with `onsite loop`, and
-`onsite progress` to see how you are doing over time."""
+"""Command-line mock interviews: one round with `onsite start`, a full loop with `onsite loop`,
+`onsite progress` to see how you are doing over time, and `onsite web` to practise in the browser."""
 
+import socket
+import threading
+import webbrowser
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -230,6 +233,44 @@ def progress(
         if t.change is not None and abs(t.change) >= 0.05:
             moved = f", {'up' if t.change > 0 else 'down'} from {t.earlier:.1f}"
         console.print(Text.assemble(f"  {n}. ", (t.name, "bold"), f" ({where}): {t.recent:.1f} lately{moved}"))
+
+
+@app.command()
+def web(
+    port: Annotated[int, typer.Option(help="Port to run on.")] = 8000,
+    out: Annotated[Path, typer.Option(help="Folder to save the reports in.")] = Path("reports"),
+    open_page: Annotated[bool, typer.Option("--open/--no-open", help="Open the page in your browser.")] = True,
+):
+    """Practise in your browser, with a code editor for coding rounds."""
+    try:
+        import uvicorn
+
+        from onsite.web.app import create_app
+    except ImportError:
+        console.print("The web app needs a few more packages. Install them with: [bold]uv sync --extra web[/bold]")
+        raise typer.Exit(1)
+
+    if not port_free(port):
+        console.print(f"[red]Port {port} is already in use.[/red] Try [bold]onsite web --port {port + 1}[/bold].")
+        raise typer.Exit(1)
+    llm = make_llm()
+
+    url = f"http://127.0.0.1:{port}"
+    console.print(f"onsite is running at [bold]{url}[/bold]. Reports are saved in {out}. Press Ctrl+C to stop.")
+    if open_page:
+        # Give the server a moment to start before the browser asks for the page.
+        threading.Timer(1.0, webbrowser.open, args=[url]).start()
+    # Only this machine can reach it. The API spends your key, so it must never listen on the network.
+    uvicorn.run(create_app(llm, out), host="127.0.0.1", port=port, log_level="warning")
+
+
+def port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
 
 
 @app.command("voice-check")
