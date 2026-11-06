@@ -20,7 +20,7 @@ from onsite.interviewer import Interview
 from onsite.llm import AnthropicLLM, LLMError
 from onsite.models import Exchange, Level, Question, Track
 from onsite.prompts import TRACK_NAMES
-from onsite.report import loop_to_markdown, to_markdown
+from onsite.report import loop_to_markdown, save_round, write_round
 from onsite.resume import TRACKS as RESUME_TRACKS
 from onsite.resume import ResumeError, questions_from_resume, read_resume
 
@@ -93,7 +93,7 @@ def start(
     report.taken_at = datetime.now()
 
     show(report)
-    path = save(report, exchanges, out)
+    path = save_round(report, exchanges, out)
     console.print(f"\nFull report with evidence and transcript: [bold]{path}[/bold]")
 
 
@@ -557,15 +557,3 @@ def show_progress(g: "history.TrackProgress") -> None:
     console.print(f"Last {len(last)} decision{'s' if len(last) != 1 else ''}, oldest first: {calls}")
     if g.ready:
         console.print(f"[green]✓ Ready:[/green] you met the bar in each of your last {history.WINDOW} rounds.")
-
-
-def save(report: RoundReport, exchanges, folder: Path) -> Path:
-    when = report.taken_at or datetime.now()
-    return write_round(report, exchanges, folder / f"{when:%Y-%m-%d-%H%M}-{report.track.value}")
-
-
-def write_round(report: RoundReport, exchanges, stem: Path) -> Path:
-    stem.parent.mkdir(parents=True, exist_ok=True)
-    stem.with_suffix(".md").write_text(to_markdown(report, exchanges, report.taken_at))
-    stem.with_suffix(".json").write_text(report.model_dump_json(indent=2))
-    return stem.with_suffix(".md")

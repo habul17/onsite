@@ -1,6 +1,7 @@
 """Turns graded rounds and loops into Markdown reports you can keep and compare over time."""
 
 from datetime import datetime
+from pathlib import Path
 
 from onsite.committee import LoopReport
 from onsite.grader import RoundReport
@@ -79,3 +80,16 @@ def loop_to_markdown(loop: LoopReport, round_files: list[str] | None = None, whe
         lines += ["", "## What to practise next", ""]
         lines += [f"{n}. {item}" for n, item in enumerate(loop.focus, 1)]
     return "\n".join(lines) + "\n"
+
+
+def save_round(report: RoundReport, exchanges: list[Exchange], folder: Path) -> Path:
+    """Save a round on its own as Markdown and JSON, named by when it was taken. Returns the Markdown file."""
+    when = report.taken_at or datetime.now()
+    return write_round(report, exchanges, folder / f"{when:%Y-%m-%d-%H%M}-{report.track.value}")
+
+
+def write_round(report: RoundReport, exchanges: list[Exchange], stem: Path) -> Path:
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    stem.with_suffix(".md").write_text(to_markdown(report, exchanges, report.taken_at))
+    stem.with_suffix(".json").write_text(report.model_dump_json(indent=2))
+    return stem.with_suffix(".md")
