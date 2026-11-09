@@ -2,6 +2,9 @@
 
 Text, not a picture, so what you drew becomes part of the transcript. The grader can quote it like
 anything you said, and the quote check works on it the same way.
+
+Only kinds, labels and arrows reach the text, in the order you added them. Where a box sits doesn't, so
+tidying up the board never counts as a new drawing.
 """
 
 from typing import Literal
@@ -29,6 +32,7 @@ class Box(BaseModel):
     id: str = Field(max_length=40)
     kind: Kind = "service"
     label: str = Field(default="", max_length=MAX_LABEL)
+    # Kept so a board can be drawn again. They never reach the text.
     x: float = 0
     y: float = 0
 
@@ -53,7 +57,7 @@ def describe(board: Board) -> str:
     lines = []
     if parts:
         lines.append("Components:")
-        lines += [f"- {names[b.id]} ({KIND_NAMES[b.kind].lower()})" for b in _reading_order(parts)]
+        lines += [f"- {names[b.id]} ({KIND_NAMES[b.kind].lower()})" for b in parts]
 
     # An arrow must join two different components that are really on the board. Notes aren't components.
     joinable = {b.id for b in parts}
@@ -69,7 +73,7 @@ def describe(board: Board) -> str:
         lines += ["Connections:", *arrows]
 
     if notes:
-        lines += ["Notes:", *(f"- {_clean(b.label)}" for b in _reading_order(notes))]
+        lines += ["Notes:", *(f"- {_clean(b.label)}" for b in notes)]
     return "\n".join(lines)
 
 
@@ -77,16 +81,11 @@ def _clean(text: str) -> str:
     return " ".join(text.split())
 
 
-def _reading_order(boxes: list[Box]) -> list[Box]:
-    # Top to bottom, then left to right, in bands so boxes drawn roughly level count as one row.
-    return sorted(boxes, key=lambda b: (round(b.y / 80), b.x))
-
-
 def _names(boxes: list[Box]) -> dict[str, str]:
     """A unique, readable name for every box. Unlabelled boxes are named by kind, and repeats get a number."""
     names: dict[str, str] = {}
     used: dict[str, int] = {}
-    for b in _reading_order(boxes):
+    for b in boxes:
         base = _clean(b.label) or f"Unnamed {KIND_NAMES[b.kind].lower()}"
         used[base.lower()] = used.get(base.lower(), 0) + 1
         names[b.id] = base if used[base.lower()] == 1 else f"{base} ({used[base.lower()]})"

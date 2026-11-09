@@ -23,18 +23,25 @@ def board():
     )
 
 
-def test_a_board_reads_top_to_bottom_left_to_right():
+def test_parts_are_listed_in_the_order_they_were_added():
     assert describe(board()) == (
         "Components:\n"
+        "- Postgres (database)\n"
         "- Mobile app (client)\n"
         "- API gateway (service)\n"
         "- Redis (cache)\n"
-        "- Postgres (database)\n"
         "Connections:\n"
         "- Mobile app -> API gateway: HTTPS\n"
         "- API gateway -> Redis: read through\n"
         "- API gateway -> Postgres"
     )
+
+
+def test_moving_boxes_changes_nothing():
+    moved = board()
+    for i, b in enumerate(moved.boxes):
+        b.x, b.y = 1000 - 200 * i, 50 * i
+    assert describe(moved) == describe(board())
 
 
 def test_an_empty_board_says_nothing():
