@@ -21,7 +21,7 @@ onsite does both.
 - **Graded for your level.** The bar for a junior is not the bar for a staff engineer. Each round is scored
   against the level you pick.
 - **Practise in the browser.** `onsite web` opens a page with the interviewer on one side and a code editor
-  on the other, like the shared editor in a real coding round. Your code goes to the interviewer with your
+  or a whiteboard on the other, like a real onsite. Your code or diagram goes to the interviewer with your
   next answer whenever it changes.
 - **You can talk instead of type.** With `--voice` the interviewer speaks and you answer out loud, like a
   real call. Speech runs on your machine, so your voice never leaves it.
@@ -108,6 +108,12 @@ uv run onsite web
   line.
 - Coding rounds put a code editor beside the chat, with line numbers, Tab to indent and auto-indent on Enter.
   Ctrl+Enter sends from the editor. Your code is sent with your next answer, but only when it has changed.
+- Design rounds put a whiteboard beside the chat. Add clients, services, databases, caches, queues, storage
+  and notes, then join them with labelled arrows: drag from a box's dot, or use the Connect row. Everything
+  also works from the keyboard.
+- The interviewer reads the whiteboard as text, a list of components and the arrows between them, so it can
+  ask about a missing cache or a single point of failure. The grader can quote it like anything you said.
+  Moving boxes around doesn't count as a change.
 - Coding and design rounds keep the question pinned above the chat while you work.
 - The report shows the decision, every score, and why each score was given, with the quotes behind it. It's
   saved to `reports/` like any other round, so `onsite progress` counts it.
@@ -223,6 +229,9 @@ flowchart LR
    on your scores, so there's no model call and nothing leaves your machine.
 8. **Web app** (`web/`). The same interviewer and grader behind a small local API, and a page with no build
    step. A second click while the interviewer is thinking is refused, so an answer is never sent twice.
+9. **Whiteboard** (`whiteboard.py`). The diagram is written out as text, components then arrows, and added to
+   your answer only when that text changes. Arrows to boxes that aren't there are dropped, and every box gets
+   a unique name so the transcript is never ambiguous.
 
 ## Development
 
@@ -237,7 +246,7 @@ first to include the audio and web app tests. They don't need a microphone, spea
 
 - [x] Voice mode: speak your answers and hear the interviewer
 - [x] Web app with a code editor for coding rounds
-- [ ] Whiteboard in the web app for design rounds
+- [x] Whiteboard in the web app for design rounds
 - [x] Questions based on your resume
 - [x] Full onsite loop: several rounds and one combined hiring decision
 - [x] Progress over time across your saved reports
