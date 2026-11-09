@@ -1,6 +1,9 @@
 import pytest
 from pydantic import ValidationError
 
+from onsite import bank, prompts
+from onsite.grader import quote_found
+from onsite.models import Level, Track
 from onsite.whiteboard import Arrow, Board, Box, describe
 
 
@@ -79,3 +82,15 @@ def test_limits_keep_a_board_from_flooding_the_prompt():
         Box(id="x", label="a" * 81)
     with pytest.raises(ValidationError):
         Box(id="x", kind="spaceship")
+
+
+def test_the_interviewer_and_grader_know_how_to_read_it():
+    tb = bank.load(Track.SYSTEM_DESIGN)
+    q = tb.questions[0]
+    assert "My whiteboard so far:" in prompts.interviewer_system(tb, Level.SENIOR, q)
+    assert "My whiteboard so far:" in prompts.grader_system(tb, Level.SENIOR, q)
+
+
+def test_a_quote_from_the_board_passes_the_quote_check():
+    said = "Start simple.\n\nMy whiteboard so far:\n" + describe(board())
+    assert quote_found("API gateway -> Redis: read through", said)
