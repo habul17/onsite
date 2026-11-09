@@ -13,6 +13,7 @@ from onsite.grader import RoundReport
 from onsite.llm import LLM, LLMError
 from onsite.models import Level, Track
 from onsite.prompts import TRACK_NAMES
+from onsite.whiteboard import Board
 from onsite.web.rounds import NothingToGrade, RoundBusy, RoundNotFound, RoundOver, Rounds, WebRound
 
 STATIC = Path(__file__).parent / "static"
@@ -42,6 +43,7 @@ class StartRequest(BaseModel):
 class AnswerRequest(BaseModel):
     text: str = Field(default="", max_length=20_000)
     code: str | None = Field(default=None, max_length=50_000, description="What is in the editor right now.")
+    board: Board | None = Field(default=None, description="What is on the whiteboard right now.")
 
 
 class RoundState(BaseModel):
@@ -101,7 +103,7 @@ def create_app(llm: LLM, reports: Path) -> FastAPI:
 
     @app.post("/api/rounds/{round_id}/answer")
     def answer(round_id: str, body: AnswerRequest) -> RoundState:
-        reply = rounds.answer(round_id, body.text, body.code)
+        reply = rounds.answer(round_id, body.text, body.code, body.board)
         return state(rounds.get(round_id), reply)
 
     @app.post("/api/rounds/{round_id}/skip")

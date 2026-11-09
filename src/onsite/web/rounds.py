@@ -17,6 +17,7 @@ from onsite.interviewer import Interview
 from onsite.llm import LLM
 from onsite.models import Level, Track
 from onsite.report import save_round
+from onsite.whiteboard import Board, describe
 
 
 class RoundNotFound(KeyError):
@@ -44,6 +45,8 @@ class WebRound:
     lock: threading.Lock = field(default_factory=threading.Lock)
     # The editor's text the interviewer has already seen, so unchanged code isn't sent with every answer.
     code_seen: str = ""
+    # The same for the whiteboard, as the text the interviewer reads.
+    board_seen: str = ""
     report: RoundReport | None = None
     saved_to: Path | None = None
 
@@ -78,16 +81,20 @@ class Rounds:
         except KeyError:
             raise RoundNotFound(round_id) from None
 
-    def answer(self, round_id: str, text: str, code: str | None = None) -> str:
-        """Send what the candidate said, and the editor's code if it changed, and get the interviewer's reply."""
+    def answer(self, round_id: str, text: str, code: str | None = None, board: Board | None = None) -> str:
+        """Send what the candidate said, plus the editor's code and the whiteboard if they changed, and get the
+        interviewer's reply."""
         r = self.get(round_id)
         with self._hold(r):
-            message = with_code(text, code, r.code_seen)
+            drawn = describe(board) if board is not None else None
+            message = with_board(with_code(text, code, r.code_seen), drawn, r.board_seen)
             if not message:
-                raise ValueError("say something or write some code first")
+                raise ValueError("say something, write some code or draw something first")
             reply = r.interview.answer(message)
             if code is not None:
                 r.code_seen = code
+            if drawn:
+                r.board_seen = drawn
             return reply
 
     def skip(self, round_id: str) -> str:
@@ -130,4 +137,12 @@ def with_code(text: str, code: str | None, seen: str) -> str:
     if code is None or not code.strip() or code == seen:
         return text
     block = f"My code so far:\n```\n{code.rstrip()}\n```"
+    return f"{text}\n\n{block}" if text else block
+
+
+def with_board(text: str, drawn: str | None, seen: str) -> str:
+    """Add the whiteboard, written out as text, if it has something on it that the interviewer hasn't seen."""
+    if not drawn or drawn == seen:
+        return text
+    block = f"My whiteboard so far:\n{drawn}"
     return f"{text}\n\n{block}" if text else block

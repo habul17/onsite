@@ -93,3 +93,18 @@ def test_a_model_failure_is_a_502_and_the_round_carries_on(tmp_path):
     failed = c.post(f"/api/rounds/{rid}/answer", json={"text": ANSWER})
     assert failed.status_code == 502 and "overloaded" in failed.json()["detail"]
     assert c.post(f"/api/rounds/{rid}/skip").status_code == 200
+
+
+def test_the_whiteboard_goes_over_http(tmp_path, fake_llm):
+    fake = fake_llm(PROBE)
+    c = client(fake, tmp_path)
+    rid = c.post("/api/rounds", json={"track": "system_design", "level": "senior", "seed": 1}).json()["id"]
+    board = {
+        "boxes": [{"id": "a", "kind": "client", "label": "Browser"}, {"id": "b", "kind": "service", "label": "API"}],
+        "arrows": [{"source": "a", "target": "b", "label": "HTTPS"}],
+    }
+    assert c.post(f"/api/rounds/{rid}/answer", json={"text": "Start simple.", "board": board}).status_code == 200
+    assert "- Browser -> API: HTTPS" in fake.calls[0]["prompt"]
+
+    bad = {"boxes": [{"id": "a", "kind": "spaceship"}], "arrows": []}
+    assert c.post(f"/api/rounds/{rid}/answer", json={"text": "hi", "board": bad}).status_code == 422

@@ -4,7 +4,8 @@ import pytest
 
 from onsite.interviewer import InterviewerTurn
 from onsite.models import Level, Track
-from onsite.web.rounds import NothingToGrade, RoundBusy, RoundNotFound, RoundOver, Rounds, with_code
+from onsite.web.rounds import NothingToGrade, RoundBusy, RoundNotFound, RoundOver, Rounds, with_board, with_code
+from onsite.whiteboard import Arrow, Board, Box
 from test_cli import ANSWER, MOVE_ON, track_grade
 
 PROBE = InterviewerTurn(action="continue", message="Why a heap?", note="no complexity yet")
@@ -125,3 +126,47 @@ def test_unknown_round():
 )
 def test_with_code(text, code, seen, sent):
     assert with_code(text, code, seen) == sent
+
+
+BOARD = Board(
+    boxes=[
+        Box(id="a", kind="service", label="API", x=0, y=0),
+        Box(id="d", kind="database", label="Postgres", x=200, y=0),
+    ],
+    arrows=[Arrow(source="a", target="d", label="writes")],
+)
+
+
+def test_the_whiteboard_is_sent_only_when_it_changes(tmp_path, fake_llm):
+    rounds = Rounds(fake_llm(PROBE, PROBE, PROBE), tmp_path)
+    r, _ = rounds.start(Track.SYSTEM_DESIGN, Level.SENIOR, seed=1)
+
+    rounds.answer(r.id, "Writes go to Postgres.", board=BOARD)
+    rounds.answer(r.id, "Reads too.", board=BOARD)
+    moved = BOARD.model_copy(deep=True)
+    moved.boxes[1].x = 900  # moving a box changes nothing the interviewer reads
+    rounds.answer(r.id, "Same picture.", board=moved)
+
+    said = [t.text for t in r.interview.current.turns if t.speaker == "candidate"]
+    assert said[0] == (
+        "Writes go to Postgres.\n\nMy whiteboard so far:\nComponents:\n- API (service)\n- Postgres (database)\n"
+        "Connections:\n- API -> Postgres: writes"
+    )
+    assert said[1:] == ["Reads too.", "Same picture."]
+
+
+def test_a_drawing_alone_is_an_answer(tmp_path, fake_llm):
+    rounds = Rounds(fake_llm(PROBE), tmp_path)
+    r, _ = rounds.start(Track.SYSTEM_DESIGN, Level.SENIOR, seed=1)
+    rounds.answer(r.id, "", board=BOARD)
+    with pytest.raises(ValueError):
+        rounds.answer(r.id, " ", board=BOARD)
+    with pytest.raises(ValueError):
+        rounds.answer(r.id, "", board=Board())
+
+
+def test_with_board():
+    assert with_board("Hi", None, "") == "Hi"
+    assert with_board("Hi", "", "") == "Hi"
+    assert with_board("Hi", "x", "x") == "Hi"
+    assert with_board("", "x", "") == "My whiteboard so far:\nx"
