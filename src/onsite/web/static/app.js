@@ -8,9 +8,11 @@ const HIRE = ["Strong Hire", "Hire", "Lean Hire"];
 let options = null;
 let round = null; // the latest round state from the server
 let codeSent = ""; // the editor text the interviewer has already seen
+let boardSent = ""; // the same for the whiteboard
 let busy = false;
 let graded = false;
 let editor = null;
+let board = null;
 
 async function api(path, body) {
   const init = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
@@ -102,6 +104,7 @@ $("setup-form").addEventListener("submit", async (e) => {
 function begin(state) {
   round = state;
   codeSent = "";
+  boardSent = board.signature();
   graded = false;
   $("log").replaceChildren();
   $("answer").value = "";
@@ -109,20 +112,32 @@ function begin(state) {
   $("round-label").textContent = roundName(state.track, state.level);
 
   const coding = state.track === "coding";
+  const design = state.track === "system_design";
   $("code-pane").hidden = !coding;
-  $("round").querySelector(".round-grid").classList.toggle("with-code", coding);
-  if (coding) editor.value = "";
+  $("board-pane").hidden = !design;
+  $("round").querySelector(".round-grid").classList.toggle("with-side", coding || design);
+  editor.value = "";
+  board.clear();
+  boardSent = board.signature();
 
   show("round");
   update(state);
   $("answer").focus();
 }
 
-function addMessage(speaker, text, code) {
+function plural(n, word, many = `${word}s`) {
+  return `${n} ${n === 1 ? word : many}`;
+}
+
+function addMessage(speaker, text, code, drawn) {
   const li = el("li", undefined, speaker);
   li.append(el("span", speaker === "interviewer" ? "Interviewer" : "You", "who"));
   if (text) li.append(text);
-  if (code) li.append(el("span", `${text ? "\n" : ""}+ your code (${code.split("\n").length} lines)`, "muted"));
+  if (code) li.append(el("span", `${text ? "\n" : ""}+ your code (${plural(code.split("\n").length, "line")})`, "muted"));
+  if (drawn) {
+    const what = `${plural(drawn.boxes, "box", "boxes")}, ${plural(drawn.arrows, "arrow")}`;
+    li.append(el("span", `${text || code ? "\n" : ""}+ your whiteboard (${what})`, "muted"));
+  }
   $("log").append(li);
   li.scrollIntoView({ block: "nearest" });
   return li;
@@ -167,18 +182,22 @@ async function send() {
   const text = $("answer").value.trim();
   const code = codeToSend();
   const newCode = code !== null && code.trim() !== "" && code !== codeSent;
-  if (!text && !newCode) {
+  const drawing = round.track === "system_design" ? board.toJSON() : null;
+  const signature = board.signature();
+  const newBoard = drawing !== null && board.size.boxes > 0 && signature !== boardSent;
+  if (!text && !newCode && !newBoard) {
     showError("error", "Write an answer first.");
     return;
   }
 
   showError("error", "");
-  const li = addMessage("candidate", text, newCode ? code : null);
+  const li = addMessage("candidate", text, newCode ? code : null, newBoard ? board.size : null);
   $("answer").value = "";
   setBusy(true);
   try {
-    const state = await api(`/api/rounds/${round.id}/answer`, { text, code });
+    const state = await api(`/api/rounds/${round.id}/answer`, { text, code, board: drawing });
     if (newCode) codeSent = code;
+    if (newBoard) boardSent = signature;
     update(state);
   } catch (err) {
     // Nothing was recorded, so put the answer back to try again.
@@ -311,4 +330,17 @@ $("again").addEventListener("click", () => {
 });
 
 editor = codeEditor($("code"), $("gutter"), { onSubmit: send });
+board = whiteboard({
+  svg: $("board"),
+  kind: $("board-kind"),
+  newLabel: $("board-new-label"),
+  addForm: $("board-add-form"),
+  from: $("board-from"),
+  to: $("board-to"),
+  arrowLabel: $("board-arrow-label"),
+  connect: $("board-connect"),
+  connectForm: $("board-connect-form"),
+  label: $("board-label"),
+  remove: $("board-delete"),
+});
 setup();

@@ -22,7 +22,7 @@ def test_the_page_and_options(tmp_path):
     c = client(None, tmp_path)
     page = c.get("/")
     assert page.status_code == 200
-    for asset in ["/static/style.css", "/static/editor.js", "/static/app.js"]:
+    for asset in ["/static/style.css", "/static/editor.js", "/static/whiteboard.js", "/static/app.js"]:
         assert asset in page.text and c.get(asset).status_code == 200
     options = c.get("/api/options").json()
     assert [t["id"] for t in options["tracks"]] == ["behavioral", "coding", "system_design"]

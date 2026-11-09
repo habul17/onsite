@@ -7,6 +7,7 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/editor.js" defer></script>
+  <script src="/static/whiteboard.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body>
@@ -59,7 +60,48 @@
           <p id="error" class="error" role="alert" hidden></p>
         </div>
 
-        <div class="code" id="code-pane" hidden>
+        <div class="board side" id="board-pane" hidden>
+          <div class="code-head">
+            <span class="pane-title">Whiteboard</span>
+            <span class="muted">Sent with your next answer when it changes. Moving boxes around doesn't count.</span>
+          </div>
+          <form class="board-tools" id="board-add-form">
+            <label for="board-kind" class="sr-only">Kind of box</label>
+            <select id="board-kind">
+              <option value="client">Client</option>
+              <option value="service" selected>Service</option>
+              <option value="database">Database</option>
+              <option value="cache">Cache</option>
+              <option value="queue">Queue</option>
+              <option value="storage">Storage</option>
+              <option value="note">Note</option>
+            </select>
+            <label for="board-new-label" class="sr-only">Name</label>
+            <input id="board-new-label" maxlength="80" placeholder="Name, like API gateway">
+            <button type="submit">Add box</button>
+          </form>
+          <form class="board-tools" id="board-connect-form">
+            <label for="board-from" class="sr-only">From</label>
+            <select id="board-from"></select>
+            <span aria-hidden="true">→</span>
+            <label for="board-to" class="sr-only">To</label>
+            <select id="board-to"></select>
+            <label for="board-arrow-label" class="sr-only">What flows along the arrow</label>
+            <input id="board-arrow-label" maxlength="80" placeholder="What flows, like writes">
+            <button type="submit" id="board-connect">Connect</button>
+          </form>
+          <div class="board-canvas">
+            <svg id="board" tabindex="0" role="img" aria-label="Whiteboard. Select a box, then use arrow keys to move it, Enter to rename it and Delete to remove it." viewBox="0 0 1600 1000" width="1600" height="1000"></svg>
+          </div>
+          <div class="board-tools">
+            <label for="board-label" class="sr-only">Selected item's label</label>
+            <input id="board-label" maxlength="80" disabled>
+            <button type="button" id="board-delete" disabled>Delete</button>
+          </div>
+          <p class="muted hint">Drag a box to move it. Drag from a box's dot to another box to connect them. Double-click empty space to add a box.</p>
+        </div>
+
+        <div class="code side" id="code-pane" hidden>
           <div class="code-head">
             <label for="code">Your code</label>
             <span class="muted">Sent with your next answer when it changes. Ctrl+Enter sends. Esc then Tab leaves the editor.</span>
